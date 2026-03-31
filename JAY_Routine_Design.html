@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JAY — My Routine</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-font-smoothing:antialiased}
+body{font-family:'Outfit',system-ui,sans-serif;background:#F5F5F5;padding:40px 16px;color:#000}
+.page-title{text-align:center;margin-bottom:12px}
+.page-title h1{font-size:13px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#999}
+.page-sub{text-align:center;font-size:12px;color:#CCC;margin-bottom:40px;font-weight:400}
+
+.row{display:flex;flex-wrap:wrap;gap:40px;justify-content:center;margin-bottom:40px}
+.col{display:flex;flex-direction:column;align-items:center;gap:10px}
+.lb{font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:2px}
+
+.ph{width:375px;height:812px;border-radius:48px;background:#FFF;overflow:hidden;position:relative;border:6px solid #111;box-shadow:0 30px 80px rgba(0,0,0,0.08)}
+.sc{height:100%;overflow-y:auto;scrollbar-width:none;padding-bottom:0}
+.sc::-webkit-scrollbar{display:none}
+
+.status-bar{display:flex;justify-content:space-between;align-items:center;padding:12px 28px 0;font-size:13px;font-weight:600}
+
+/* Common header */
+.sec-header{position:sticky;top:0;z-index:10;background:rgba(255,255,255,0.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:0.5px solid #E5E5E5}
+.sec-header-main{display:flex;align-items:center;justify-content:space-between;padding:10px 20px 12px}
+.sec-header-main h2{font-size:22px;font-weight:600;letter-spacing:-0.3px}
+.hbtn{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.hbtn-black{background:#000}
+.hbtn-black svg{stroke:#fff}
+
+/* Tab bar */
+.tab-bar{display:flex;gap:0;border-bottom:0.5px solid #E5E5E5}
+.tab{flex:1;padding:10px 0;text-align:center;font-size:12px;font-weight:500;color:#CCC;position:relative}
+.tab.active{color:#000;font-weight:600}
+.tab.active::after{content:'';position:absolute;bottom:-0.5px;left:20%;right:20%;height:1.5px;background:#000;border-radius:1px}
+
+/* Progress ring */
+.ring-wrap{position:relative;display:flex;align-items:center;justify-content:center}
+.ring-wrap svg{transform:rotate(-90deg)}
+.ring-label{position:absolute;display:flex;flex-direction:column;align-items:center}
+.ring-pct{font-size:28px;font-weight:700;letter-spacing:-1px}
+.ring-sub{font-size:10px;color:#999;font-weight:500;text-transform:uppercase;letter-spacing:1.5px}
+
+/* Step row */
+.step{display:flex;align-items:flex-start;gap:12px;padding:14px 20px;border-bottom:0.5px solid #F5F5F5;position:relative}
+.step-check{width:22px;height:22px;border-radius:50%;border:1.5px solid #E5E5E5;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.step-check.done{background:#000;border-color:#000}
+.step-check.done svg{stroke:#fff}
+.step-check.skip{background:#F5F5F5;border-color:#E5E5E5}
+.step-body{flex:1;min-width:0}
+.step-body h4{font-size:13px;font-weight:600}
+.step-body .step-product{font-size:12px;color:#666;margin-top:2px}
+.step-body .step-inst{font-size:11px;color:#999;margin-top:3px;line-height:1.4}
+.step-wait{margin-top:6px;display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:#F5F5F5;border-radius:100px;font-size:10px;color:#999;font-weight:500}
+.step-freq{position:absolute;right:20px;top:16px;font-size:9px;font-weight:600;color:#CCC;text-transform:uppercase;letter-spacing:1px}
+.step-price{font-size:11px;font-weight:600;color:#999;margin-top:3px}
+
+/* Period toggle */
+.period-toggle{display:flex;margin:16px 20px;background:#F5F5F5;border-radius:10px;padding:3px}
+.period-btn{flex:1;padding:8px;text-align:center;border-radius:8px;font-size:13px;font-weight:500;color:#999}
+.period-btn.active{background:#000;color:#fff}
+
+/* Streak bar */
+.streak-bar{display:flex;align-items:center;gap:10px;margin:0 20px 12px;padding:12px 16px;background:#F5F5F5;border-radius:12px}
+.streak-fire{font-size:20px;line-height:1}
+.streak-num{font-size:22px;font-weight:700;letter-spacing:-0.5px}
+.streak-text{font-size:11px;color:#999;line-height:1.3}
+.streak-text span{display:block;font-size:12px;color:#000;font-weight:600}
+
+/* Day dots */
+.day-dots{display:flex;gap:4px;margin:0 20px 16px;justify-content:space-between}
+.day-dot{display:flex;flex-direction:column;align-items:center;gap:4px}
+.day-dot span{font-size:9px;font-weight:600;color:#CCC;text-transform:uppercase}
+.dot{width:8px;height:8px;border-radius:50%;background:#E5E5E5}
+.dot.filled{background:#000}
+.dot.half{background:#999}
+.dot.today{border:1.5px solid #000;background:transparent}
+
+/* Empty state */
+.empty{display:flex;flex-direction:column;align-items:center;padding:50px 30px;text-align:center}
+.empty-icon{width:72px;height:72px;background:#F5F5F5;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:24px}
+.empty h3{font-size:20px;font-weight:600;letter-spacing:-0.3px;margin-bottom:8px}
+.empty p{font-size:13px;color:#999;line-height:1.5;margin-bottom:32px;max-width:260px}
+
+/* Option cards */
+.opt-card{width:100%;border:0.5px solid #E5E5E5;border-radius:14px;padding:16px 18px;margin-bottom:10px;display:flex;align-items:center;gap:14px;text-align:left}
+.opt-icon{width:42px;height:42px;background:#F5F5F5;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.opt-icon.black{background:#000}
+.opt-icon.black svg{stroke:#fff}
+.opt-text h5{font-size:14px;font-weight:600}
+.opt-text p{font-size:11px;color:#999;margin-top:2px;line-height:1.4}
+.opt-arrow{margin-left:auto;flex-shrink:0}
+
+/* Type selector */
+.type-card{border:0.5px solid #E5E5E5;border-radius:14px;padding:16px;margin:0 20px 10px}
+.type-card.selected{border-color:#000;border-width:1.5px}
+.type-top{display:flex;align-items:center;justify-content:space-between}
+.type-name{font-size:15px;font-weight:600}
+.type-badge{padding:3px 10px;border-radius:100px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;background:#F5F5F5;color:#999}
+.type-badge.rec{background:#000;color:#fff}
+.type-desc{font-size:12px;color:#999;margin-top:6px;line-height:1.4}
+.type-steps{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.type-step-chip{padding:3px 10px;border-radius:100px;font-size:10px;font-weight:500;background:#F5F5F5;color:#666}
+
+/* AI generating state */
+.gen-state{display:flex;flex-direction:column;align-items:center;padding:60px 30px;text-align:center}
+.gen-spinner{width:56px;height:56px;border:2.5px solid #F5F5F5;border-top-color:#000;border-radius:50%;animation:spin 0.9s linear infinite;margin-bottom:24px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.gen-state h3{font-size:18px;font-weight:600;margin-bottom:8px}
+.gen-state p{font-size:13px;color:#999;line-height:1.5}
+.gen-steps{margin-top:24px;display:flex;flex-direction:column;gap:8px;width:100%;max-width:240px}
+.gen-step{display:flex;align-items:center;gap:10px;font-size:12px;color:#999}
+.gen-step.done{color:#000}
+.gen-step-dot{width:6px;height:6px;border-radius:50%;background:#E5E5E5;flex-shrink:0}
+.gen-step.done .gen-step-dot{background:#000}
+.gen-step.active .gen-step-dot{background:#000;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* Generated result */
+.gen-result-header{padding:16px 20px;display:flex;align-items:center;gap:12px}
+.gen-jay{width:36px;height:36px;background:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.gen-jay span{color:#fff;font-size:14px;font-weight:800;font-family:'Arial Black','Impact','Outfit',sans-serif}
+.gen-msg{flex:1}
+.gen-msg h4{font-size:14px;font-weight:600}
+.gen-msg p{font-size:12px;color:#999;margin-top:2px}
+
+.gen-meta{display:flex;gap:12px;margin:0 20px 16px}
+.gen-meta-item{flex:1;background:#F5F5F5;border-radius:10px;padding:10px 12px;text-align:center}
+.gen-meta-val{font-size:18px;font-weight:700;letter-spacing:-0.5px}
+.gen-meta-label{font-size:9px;color:#999;text-transform:uppercase;letter-spacing:1.5px;margin-top:2px}
+
+.gen-actions{display:flex;gap:8px;padding:0 20px;margin-bottom:16px}
+.gen-btn{flex:1;padding:12px;border-radius:10px;text-align:center;font-size:13px;font-weight:600}
+.gen-btn-primary{background:#000;color:#fff}
+.gen-btn-secondary{border:0.5px solid #E5E5E5}
+
+/* Why tag */
+.why-tag{margin-top:4px;font-size:10px;color:#999;font-style:italic;line-height:1.4}
+
+/* Conflict warning */
+.conflict-warn{margin:0 20px 12px;padding:10px 14px;border-left:2.5px solid #999;background:#FAFAFA;border-radius:0 8px 8px 0}
+.conflict-warn h5{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:4px}
+.conflict-warn p{font-size:12px;color:#666;line-height:1.4}
+
+/* Manual add step */
+.add-step-btn{display:flex;align-items:center;justify-content:center;gap:8px;margin:12px 20px;padding:12px;border:1px dashed #E5E5E5;border-radius:12px;font-size:13px;font-weight:500;color:#999}
+
+/* Product search */
+.search-bar{margin:0 20px 12px;background:#F5F5F5;border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:8px}
+.search-bar span{font-size:13px;color:#CCC}
+
+.prod-item{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:0.5px solid #F5F5F5}
+.prod-thumb{width:44px;height:44px;background:#F5F5F5;border-radius:10px;display:flex;align-items:center;justify-content:center}
+.prod-thumb span{font-size:18px;opacity:0.12}
+.prod-info{flex:1;min-width:0}
+.prod-info h5{font-size:13px;font-weight:600}
+.prod-info p{font-size:11px;color:#999;margin-top:1px}
+.prod-info .prod-ings{font-size:10px;color:#CCC;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prod-price{font-size:14px;font-weight:700;letter-spacing:-0.3px;flex-shrink:0}
+.prod-match{font-size:9px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;text-align:right}
+
+/* Stats card */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 20px 16px}
+.stat-card{background:#F5F5F5;border-radius:12px;padding:14px}
+.stat-val{font-size:28px;font-weight:700;letter-spacing:-1px}
+.stat-label{font-size:10px;color:#999;text-transform:uppercase;letter-spacing:1.5px;margin-top:2px}
+.stat-card.full{grid-column:1/-1}
+
+/* Weekly bar chart */
+.week-chart{display:flex;align-items:flex-end;gap:6px;height:80px;margin:0 20px 16px;padding:0 8px}
+.bar-day{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.bar{width:100%;border-radius:4px 4px 0 0;background:#E5E5E5;min-height:4px;transition:height 0.3s}
+.bar.filled{background:#000}
+.bar.partial{background:#999}
+.bar-label{font-size:9px;color:#CCC;font-weight:600;text-transform:uppercase}
+
+/* Cost breakdown */
+.cost-row{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:0.5px solid #F5F5F5}
+.cost-row .cost-name{font-size:13px;font-weight:500}
+.cost-row .cost-cat{font-size:11px;color:#999}
+.cost-row .cost-amt{font-size:14px;font-weight:700;letter-spacing:-0.3px}
+
+/* Bottom nav */
+.bot-nav{position:absolute;bottom:0;left:0;right:0;background:#FFF;border-top:0.5px solid #E5E5E5;display:flex;padding:6px 0 28px;z-index:20}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding-top:6px}
+.nav-item svg{opacity:0.2}
+.nav-item span{font-size:9px;font-weight:600;color:#CCC;text-transform:uppercase;letter-spacing:0.5px}
+.nav-item.active svg{opacity:1}
+.nav-item.active span{color:#000}
+
+.section-label{text-align:center;width:100%;font-size:11px;font-weight:600;color:#CCC;letter-spacing:2px;text-transform:uppercase;margin:20px 0 8px;padding-top:20px;border-top:1px solid #EAEAEA}
+</style>
+</head>
+<body>
+
+<div class="page-title"><h1>JAY — My Routine</h1></div>
+<div class="page-sub">Complete routine section — all screens</div>
+
+<!-- ==================== SCREEN 1: TODAY'S ROUTINE (AM) ==================== -->
+<div class="section-label">Daily tracker</div>
+<div class="row">
+<div class="col"><div class="lb">Morning routine — tracking</div>
+<div class="ph"><div class="sc">
+
+<div class="sec-header">
+<div class="status-bar"><span>7:41</span><span style="font-size:11px;letter-spacing:1px">●●●●</span></div>
+<div class="sec-header-main">
+<h2>My Routine</h2>
+<div style="display:flex;gap:4px">
+<div class="hbtn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
+<div class="hbtn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></div>
+</div>
+</div>
+<div class="tab-bar">
+<div class="tab active">Today</div>
+<div class="tab">My routine</div>
+<div class="tab">Stats</div>
+</div>
+</div>
+
+<!-- Period toggle -->
+<div class="period-toggle">
+<div class="period-btn active">Morning</div>
+<div class="period-btn">Night</div>
+</div>
+
+<!-- Streak -->
+<div class="streak-bar">
+<div class="streak-fire" style="font-family:serif">7</div>
+<div>
+<div class="streak-text"><span>7 day streak</span>You haven't missed a morning in a week</div>
+</div>
+</div>
+
+<!-- Day dots (last 7 days) -->
+<div class="day-dots">
+<div class="day-dot"><div class="dot filled"></div><span>Mon</span></div>
+<div class="day-dot"><div class="dot filled"></div><span>Tue</span></div>
+<div class="day-dot"><div class="dot filled"></div><span>Wed</span></div>
+<div class="day-dot"><div class="dot filled"></div><span>Thu</span></div>
+<div class="day-dot"><div class="dot half"></div><span>Fri</span></div>
+<div class="day-dot"><div class="dot filled"></div><span>Sat</span></div>
+<div class="day-dot"><div class="dot today"></div><span>Sun</span></div>
+</div>
+
+<!-- Progress ring + steps -->
+<div style="display:flex;align-items:center;justify-content:center;padding:8px 0 16px">
+<div class="ring-wrap">
+<svg width="100" height="100" viewBox="0 0 100 100">
+<circle cx="50" cy="50" r="42" fill="none" stroke="#F5F5F5" stroke-width="5"/>
+<circle cx="50" cy="50" r="42" fill="none" stroke="#000" stroke-width="5" stroke-dasharray="264" stroke-dashoffset="132" stroke-linecap="round"/>
+</svg>
+<div class="ring-label">
+<div class="ring-pct">2/4</div>
+<div class="ring-sub">Steps</div>
+</div>
+</div>
+</div>
+
+<!-- Steps -->
+<div class="step">
+<div class="step-check done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+<div class="step-body">
+<h4>Cleanser</h4>
+<div class="step-product">CeraVe Foaming Cleanser</div>
+<div class="step-inst">Massage 60s on damp skin, rinse lukewarm</div>
+</div>
+<div class="step-freq" style="color:#000">7:32</div>
+</div>
+
+<div class="step">
+<div class="step-check done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+<div class="step-body">
+<h4>Serum — Vitamin C</h4>
+<div class="step-product">Minimalist 10% Vitamin C</div>
+<div class="step-inst">2-3 drops, pat into skin</div>
+<div class="step-wait"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Wait 1-2 min</div>
+</div>
+<div class="step-freq" style="color:#000">7:34</div>
+</div>
+
+<div class="step">
+<div class="step-check"></div>
+<div class="step-body">
+<h4>Moisturizer</h4>
+<div class="step-product">Neutrogena Hydro Boost Gel</div>
+<div class="step-inst">Apply evenly to face and neck</div>
+</div>
+</div>
+
+<div class="step">
+<div class="step-check"></div>
+<div class="step-body">
+<h4>Sunscreen SPF 50</h4>
+<div class="step-product">La Shield Mineral SPF 50</div>
+<div class="step-inst">2 finger lengths. Reapply every 2-3 hrs outdoors.</div>
+</div>
+<div class="step-freq">Essential</div>
+</div>
+
+<div style="height:80px"></div>
+</div>
+<div class="bot-nav">
+<div class="nav-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span>Home</span></div>
+<div class="nav-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><span>Discover</span></div>
+<div class="nav-item active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Routine</span></div>
+<div class="nav-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span>Ask JAY</span></div>
+<div class="nav-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Profile</span></div>
+</div>
+</div></div>
+
+
+<!-- ==================== SCREEN 2: PM ROUTINE ==================== -->
+<div class="col"><div class="lb">Night routine — with frequency</div>
+<div class="ph"><div class="sc">
+
+<div class="sec-header">
+<div class="status-bar"><span>9:41</span><span style="font-size:11px;letter-spacing:1px">●●●●</span></div>
+<div class="sec-header-main">
+<h2>My Routine</h2>
+<div style="display:flex;gap:4px">
+<div class="hbtn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></div>
+<div class="hbtn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></div>
+</div>
+</div>
+<div class="tab-bar">
+<div class="tab active">Today</div>
+<div class="tab">My routine</div>
+<div class="tab">Stats</div>
+</div>
+</div>
+
+<div class="period-toggle">
+<div class="period-btn">Morning</div>
+<div class="period-btn active">Night</div>
+</div>
+
+<div style="display:flex;align-items:center;justify-content:center;padding:8px 0 16px">
+<div class="ring-wrap">
+<svg width="100" height="100" viewBox="0 0 100 100">
+<circle cx="50" cy="50" r="42" fill="none" stroke="#F5F5F5" stroke-width="5"/>
+<circle cx="50" cy="50" r="42" fill="none" stroke="#000" stroke-width="5" stroke-dasharray="264" stroke-dashoffset="264" stroke-linecap="round"/>
+</svg>
+<div class="ring-label">
+<div class="ring-pct">0/5</div>
+<div class="ring-sub">Steps</div>
+</div>
+</div>
+</div>
+
+<div class="step">
+<div class="step-check"></div>
+<div class="step-body">
+<h4>Oil cleanser</h4>
+<div class="step-product">Klairs Gentle Black Cleansing Oil</div>
+<div class="step-inst">Massage onto dry skin 60s to dissolve sunscreen</div>
+</div>
+<div class="step-freq">Daily</div>
+</div>
+
+<div class="step">
+<div class="step-check"></div>
+<div class="step-body">
+<h4>Water cleanser</h4>
+<div class="step-product">CeraVe Foaming Cleanser</div>
+<div class="step-inst">Gentle wash on damp skin, rinse</div>
+</div>
+<div class="step-freq">Daily</div>
+</div>
+
+<div class="step" style="background:#FAFAFA">
+<div class="step-check"></div>
+<div class="step-body">
+<h4>Treatment — Retinol</h4>
+<div class="step-product">Minimalist 0.3% Retinol</div>
+<div class="step-inst">Pea-sized amount. Start slow — 2x/week.</div>
+<div class="step-wait"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Wait 2-3 min before moisturizer</div>
+</div>
+<div class="step-freq" style="color:#000">Mon Wed Fri</div>
+</div>
+
+<div class="step">
+<div class="step-check"></div>
+<div class="step-body">
+<h4>Moisturizer</h4>
+<div class="step-product">Neutrogena Hydro Boost Gel</div>
+<div class="step-inst">Apply generously — acts as retinol buffer</div>
+</div>
+<div class="step-freq">Daily</div>
+</div>
+
+<div class="step">
+<div class="step-check"></div>
+<div class="step-body">
+<h4>Face oil</h4>
+<div class="step-product">Plum Grape Seed &amp; Sea Buckthorn Oil</div>
+<div class="step-inst">2-3 drops pressed in to seal moisture</div>
+</div>
+<div class="step-freq">2x week</div>
+</div>
+
+<!-- Conflict notice -->
+<div class="conflict-warn">
+<h5>Tonight's note</h5>
+<p>It's Friday — your retinol night. Skip the AHA exfoliant today. They don't mix well in the same session.</p>
+</div>
+
+<div style="height:80px"></div>
+</div>
+<div class="bot-nav">
+<div class="nav-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span>Home</span></div>
+<div class="nav-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><span>Discover</span></div>
+<div class="nav-item active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Routine</span></div>
+<div class="nav-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span>Ask JAY</span></div>
+<div class="nav-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Profile</span></div>
+</div>
+</div></div>
+</div>
+
+<!-- ==================== SCREEN 3: EMPTY STATE + BUILD WITH JAY RESULT ==================== -->
+<div class="section-label">Empty state + AI generation</div>
+<div class="row">
+
+<!-- Empty state -->
+<div class="col"><div class="lb">No routine yet</div>
+<div class="ph"><div class="sc">
+
+<div class="sec-header">
+<div class="status-bar"><span>9:41</span><span style="font-size:11px;letter-spacing:1px">●●●●</span></div>
+<div class="sec-header-main"><h2>My Routine</h2></div>
+<div class="tab-bar">
+<div class="tab active">Today</div>
+<div class="tab">My routine</div>
+<div class="tab">Stats</div>
+</div>
+</div>
+
+<div class="empty">
+<div class="empty-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+<h3>No routine yet</h3>
+<p>Build your first skincare routine — JAY can create one for you based on your skin profile, or you can add your own.</p>
+
+<div class="opt-card">
+<div class="opt-icon black"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+<div class="opt-text">
+<h5>Build with JAY</h5>
+<p>AI creates a personalized routine from your profile, concerns, and budget</p>
+</div>
+<div class="opt-arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CCC" stroke-width="1.5"><path d="M9 18l6-6-6-6"/></svg></div>
+</div>
+
+<div class="opt-card">
+<div class="opt-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="1.5" stroke-linecap="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
+<div class="opt-text">
+<h5>Add current routine</h5>
+<p>Log what you already use so JAY can track and improve it</p>
+</div>
+<div class="opt-arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CCC" stroke-width="1.5"><path d="M9 18l6-6-6-6"/></svg></div>
+</div>
+
+<div class="opt-card">
+<div class="opt-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
+<div class="opt-text">
+<h5>Choose a template</h5>
+<p>Pick from Essential, Complete, Glass Skin, or Anti-Acne</p>
+</div>
+<div class="opt-arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CCC" stroke-width="1.5"><path d="M9 18l6-6-6-6"/></svg></div>
+</div>
+</div>
+
+<div style="height:80px"></div>
+</div>
+<div class="bot-nav">
+<div class="nav-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span>Home</span></div>
+<div class="nav-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><span>Discover</span></div>
+<div class="nav-item active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Routine</span></div>
+<div class="nav-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span>Ask JAY</span></div>
+<div class="nav-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Profile</span></div>
+</div>
+</div></div>
+
+
+<!-- Build with JAY — result -->
+<div class="col"><div class="lb">Build with JAY — result</div>
+<div class="ph"><div class="sc">
+
+<div class="sec-header">
+<div class="status-bar"><span>9:41</span><span style="font-size:11px;letter-spacing:1px">●●●●</span></div>
+<div style="display:flex;align-items:center;gap:12px;padding:10px 20px 12px">
+<div class="hbtn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+<h2 style="font-size:17px;font-weight:600">JAY's recommendation</h2>
+</div>
+</div>
+
+<!-- JAY avatar + message -->
+<div class="gen-result-header">
+<div class="gen-jay"><span>J</span></div>
+<div class="gen-msg">
+<h4>Built for your combination skin</h4>
+<p>Targets acne + dark spots within ₹500-1K budget</p>
+</div>
+</div>
+
+<!-- Meta cards -->
+<div class="gen-meta">
+<div class="gen-meta-item">
+<div class="gen-meta-val">₹847</div>
+<div class="gen-meta-label">Monthly cost</div>
+</div>
+<div class="gen-meta-item">
+<div class="gen-meta-val">9</div>
+<div class="gen-meta-label">Total steps</div>
+</div>
+<div class="gen-meta-item">
+<div class="gen-meta-val">0</div>
+<div class="gen-meta-label">Conflicts</div>
+</div>
+</div>
+
+<!-- AM routine -->
+<div style="padding:0 20px 8px;display:flex;align-items:center;gap:8px">
+<div style="width:6px;height:6px;border-radius:50%;background:#000"></div>
+<span style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:2px">Morning — 5 steps</span>
+</div>
+
+<div class="step">
+<div style="width:22px;height:22px;border-radius:50%;background:#000;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px"><span style="color:#fff;font-size:9px;font-weight:700">1</span></div>
+<div class="step-body">
+<h4>Cleanser</h4>
+<div class="step-product">CeraVe Foaming Cleanser · ₹599</div>
+<div class="why-tag">Sulfate-free, ceramides for barrier — perfect for combo skin</div>
+</div>
+</div>
+
+<div class="step">
+<div style="width:22px;height:22px;border-radius:50%;background:#000;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px"><span style="color:#fff;font-size:9px;font-weight:700">2</span></div>
+<div class="step-body">
+<h4>Serum — Vitamin C</h4>
+<div class="step-product">Minimalist 10% Vitamin C · ₹549</div>
+<div class="step-wait"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Wait 1-2 min</div>
+<div class="why-tag">L-ascorbic acid targets your dark spots. Unscented — no fragrance.</div>
+</div>
+</div>
+
+<div class="step">
+<div style="width:22px;height:22px;border-radius:50%;background:#000;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px"><span style="color:#fff;font-size:9px;font-weight:700">3</span></div>
+<div class="step-body">
+<h4>Serum — Niacinamide</h4>
+<div class="step-product">Minimalist 10% Niacinamide · ₹349</div>
+<div class="why-tag">Controls oily T-zone, fades dark spots, strengthens barrier</div>
+</div>
+</div>
+
+<div class="step">
+<div style="width:22px;height:22px;border-radius:50%;background:#000;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px"><span style="color:#fff;font-size:9px;font-weight:700">4</span></div>
+<div class="step-body">
+<h4>Moisturizer</h4>
+<div class="step-product">Neutrogena Hydro Boost Gel · ₹249</div>
+<div class="why-tag">Gel texture — lightweight for Mumbai humidity, oil-free</div>
+</div>
+</div>
+
+<div class="step">
+<div style="width:22px;height:22px;border-radius:50%;background:#000;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px"><span style="color:#fff;font-size:9px;font-weight:700">5</span></div>
+<div class="step-body">
+<h4>Sunscreen SPF 50</h4>
+<div class="step-product">La Shield Mineral SPF 50 · ₹499</div>
+<div class="why-tag">Mineral filter, zero white cast, matte finish for oily T-zone</div>
+</div>
+</div>
+
+<!-- PM routine preview -->
+<div style="padding:16px 20px 8px;display:flex;align-items:center;gap:8px;border-top:0.5px solid #E5E5E5;margin-top:8px">
+<div style="width:6px;height:6px;border-radius:50%;background:#000"></div>
+<span style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:2px">Night — 4 steps</span>
+</div>
+
+<div class="step">
+<div style="width:22px;height:22px;border-radius:50%;background:#000;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px"><span style="color:#fff;font-size:9px;font-weight:700">1</span></div>
+<div class="step-body">
+<h4>Cleanser</h4>
+<div class="step-product">CeraVe Foaming Cleanser · ₹599</div>
+<div class="why-tag">Same as AM — one product for both. Economical.</div>
+</div>
+</div>
+
+<div class="step">
+<div style="width:22px;height:22px;border-radius:50%;background:#000;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px"><span style="color:#fff;font-size:9px;font-weight:700">2</span></div>
+<div class="step-body">
+<h4>Treatment — Retinol</h4>
+<div class="step-product">Minimalist 0.3% Retinol · ₹399</div>
+<div class="step-wait"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Wait 2-3 min</div>
+<div class="why-tag">Lowest strength to start. 2x/week. Builds collagen, fades spots.</div>
+<div class="step-freq">Mon Wed Fri</div>
+</div>
+</div>
+
+<div class="step">
+<div style="width:22px;height:22px;border-radius:50%;background:#000;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px"><span style="color:#fff;font-size:9px;font-weight:700">3</span></div>
+<div class="step-body">
+<h4>Moisturizer</h4>
+<div class="step-product">Neutrogena Hydro Boost · ₹249</div>
+</div>
+</div>
+
+<div class="step">
+<div style="width:22px;height:22px;border-radius:50%;background:#000;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px"><span style="color:#fff;font-size:9px;font-weight:700">4</span></div>
+<div class="step-body">
+<h4>Spot treatment</h4>
+<div class="step-product">Minimalist 2% Salicylic Acid · ₹299</div>
+<div class="why-tag">Only on active spots. Controls your acne without drying everything.</div>
+<div class="step-freq">As needed</div>
+</div>
+</div>
+
+<!-- Actions -->
+<div class="gen-actions" style="margin-top:16px">
+<div class="gen-btn gen-btn-primary">Save this routine</div>
+<div class="gen-btn gen-btn-secondary">Regenerate</div>
+</div>
+
+<div style="text-align:center;padding:0 0 16px">
+<span style="font-size:11px;color:#CCC">Tap any step to swap the product</span>
+</div>
+
+<div style="height:20px"></div>
+</div></div></div>
+
+</div>
+
+<!-- ==================== SCREEN 4: ROUTINE TYPES + STATS ==================== -->
+<div class="section-label">Type selection + Stats</div>
+<div class="row">
+
+<!-- Type selection -->
+<div class="col"><div class="lb">Choose routine type</div>
+<div class="ph"><div class="sc">
+
+<div class="sec-header">
+<div class="status-bar"><span>9:41</span><span style="font-size:11px;letter-spacing:1px">●●●●</span></div>
+<div style="display:flex;align-items:center;gap:12px;padding:10px 20px 12px">
+<div class="hbtn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+<h2 style="font-size:17px;font-weight:600">Choose a type</h2>
+</div>
+</div>
+
+<div style="padding:12px 20px 16px">
+<p style="font-size:13px;color:#999;line-height:1.5">Pick a routine structure. JAY will recommend the best type for your profile, or choose your own.</p>
+</div>
+
+<div class="type-card selected">
+<div class="type-top">
+<div class="type-name">Complete</div>
+<div class="type-badge rec">Recommended</div>
+</div>
+<div class="type-desc">A well-rounded routine with actives. The sweet spot for most people. 5-7 steps per session.</div>
+<div class="type-steps">
+<div class="type-step-chip">Cleanser</div>
+<div class="type-step-chip">Toner</div>
+<div class="type-step-chip">Serum</div>
+<div class="type-step-chip">Moisturizer</div>
+<div class="type-step-chip">SPF</div>
+</div>
+</div>
+
+<div class="type-card">
+<div class="type-top">
+<div class="type-name">Essential</div>
+<div class="type-badge">3-4 steps</div>
+</div>
+<div class="type-desc">The non-negotiable basics. Perfect for beginners or minimalists who value consistency over complexity.</div>
+<div class="type-steps">
+<div class="type-step-chip">Cleanser</div>
+<div class="type-step-chip">Moisturizer</div>
+<div class="type-step-chip">SPF</div>
+</div>
+</div>
+
+<div class="type-card">
+<div class="type-top">
+<div class="type-name">Glass Skin</div>
+<div class="type-badge">7-10 steps</div>
+</div>
+<div class="type-desc">The K-beauty layered approach. Maximum hydration and a translucent, glowing finish.</div>
+<div class="type-steps">
+<div class="type-step-chip">Double cleanse</div>
+<div class="type-step-chip">Toner</div>
+<div class="type-step-chip">Essence</div>
+<div class="type-step-chip">Serum</div>
+<div class="type-step-chip">+5 more</div>
+</div>
+</div>
+
+<div class="type-card">
+<div class="type-top">
+<div class="type-name">Anti-Acne</div>
+<div class="type-badge">4-5 steps</div>
+</div>
+<div class="type-desc">Targeted routine for breakout-prone skin. Gentle cleanser + BHA + oil-free everything.</div>
+<div class="type-steps">
+<div class="type-step-chip">Gentle cleanser</div>
+<div class="type-step-chip">BHA</div>
+<div class="type-step-chip">Oil-free moisturizer</div>
+<div class="type-step-chip">SPF</div>
+</div>
+</div>
+
+<div class="type-card">
+<div class="type-top">
+<div class="type-name">Barrier Repair</div>
+<div class="type-badge">3 steps</div>
+</div>
+<div class="type-desc">Stripped-back recovery. No actives, no exfoliants, no fragrance. 2-4 weeks to heal your barrier.</div>
+</div>
+
+<div class="type-card">
+<div class="type-top">
+<div class="type-name">Custom</div>
+<div class="type-badge">You decide</div>
+</div>
+<div class="type-desc">Build from scratch. Pick every step, add your own products. JAY validates your choices live.</div>
+</div>
+
+<div style="padding:16px 20px 20px">
+<div class="gen-btn gen-btn-primary" style="text-align:center;border-radius:12px;padding:14px">Continue with Complete</div>
+</div>
+
+</div></div></div>
+
+
+<!-- Stats -->
+<div class="col"><div class="lb">Stats + adherence</div>
+<div class="ph"><div class="sc">
+
+<div class="sec-header">
+<div class="status-bar"><span>9:41</span><span style="font-size:11px;letter-spacing:1px">●●●●</span></div>
+<div class="sec-header-main"><h2>My Routine</h2></div>
+<div class="tab-bar">
+<div class="tab">Today</div>
+<div class="tab">My routine</div>
+<div class="tab active">Stats</div>
+</div>
+</div>
+
+<!-- Streak hero -->
+<div style="display:flex;align-items:center;justify-content:center;padding:24px 0 8px;flex-direction:column">
+<div style="font-size:52px;font-weight:700;letter-spacing:-2px;line-height:1">7</div>
+<div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:2px;color:#999;margin-top:4px">Day streak</div>
+</div>
+
+<!-- Weekly bar chart -->
+<div style="padding:0 20px 4px"><span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:2px;color:#999">This week</span></div>
+<div class="week-chart">
+<div class="bar-day"><div class="bar filled" style="height:100%"></div><div class="bar-label">M</div></div>
+<div class="bar-day"><div class="bar filled" style="height:100%"></div><div class="bar-label">T</div></div>
+<div class="bar-day"><div class="bar filled" style="height:100%"></div><div class="bar-label">W</div></div>
+<div class="bar-day"><div class="bar filled" style="height:100%"></div><div class="bar-label">T</div></div>
+<div class="bar-day"><div class="bar partial" style="height:60%"></div><div class="bar-label">F</div></div>
+<div class="bar-day"><div class="bar filled" style="height:100%"></div><div class="bar-label">S</div></div>
+<div class="bar-day"><div class="bar" style="height:30%"></div><div class="bar-label">S</div></div>
+</div>
+
+<!-- Stat cards -->
+<div class="stat-grid">
+<div class="stat-card">
+<div class="stat-val">87%</div>
+<div class="stat-label">Adherence</div>
+</div>
+<div class="stat-card">
+<div class="stat-val">7</div>
+<div class="stat-label">Current streak</div>
+</div>
+<div class="stat-card">
+<div class="stat-val">14</div>
+<div class="stat-label">Longest streak</div>
+</div>
+<div class="stat-card">
+<div class="stat-val">3</div>
+<div class="stat-label">Skipped days</div>
+</div>
+</div>
+
+<!-- Cost breakdown -->
+<div style="padding:16px 20px 8px"><span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:2px;color:#999">Monthly cost breakdown</span></div>
+
+<div class="cost-row">
+<div><div class="cost-name">CeraVe Foaming Cleanser</div><div class="cost-cat">Cleanser — AM + PM</div></div>
+<div class="cost-amt">₹599</div>
+</div>
+<div class="cost-row">
+<div><div class="cost-name">Minimalist 10% Vitamin C</div><div class="cost-cat">Serum — AM</div></div>
+<div class="cost-amt">₹549</div>
+</div>
+<div class="cost-row">
+<div><div class="cost-name">Minimalist 10% Niacinamide</div><div class="cost-cat">Serum — AM</div></div>
+<div class="cost-amt">₹349</div>
+</div>
+<div class="cost-row">
+<div><div class="cost-name">Neutrogena Hydro Boost</div><div class="cost-cat">Moisturizer — AM + PM</div></div>
+<div class="cost-amt">₹249</div>
+</div>
+<div class="cost-row">
+<div><div class="cost-name">La Shield Mineral SPF 50</div><div class="cost-cat">Sunscreen — AM</div></div>
+<div class="cost-amt">₹499</div>
+</div>
+<div class="cost-row">
+<div><div class="cost-name">Minimalist 0.3% Retinol</div><div class="cost-cat">Treatment — PM (3x/wk)</div></div>
+<div class="cost-amt">₹399</div>
+</div>
+
+<div style="display:flex;justify-content:space-between;padding:14px 20px;border-top:1.5px solid #000">
+<div style="font-size:14px;font-weight:700">Total monthly</div>
+<div style="font-size:18px;font-weight:700;letter-spacing:-0.5px">₹2,644</div>
+</div>
+
+<div style="padding:8px 20px 16px">
+<div style="padding:10px 14px;background:#F5F5F5;border-radius:10px;display:flex;align-items:center;gap:10px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+<span style="font-size:12px;color:#666">JAY found ₹380 in savings with dupes. <span style="color:#000;font-weight:600">View dupes</span></span>
+</div>
+</div>
+
+<div style="height:80px"></div>
+</div>
+<div class="bot-nav">
+<div class="nav-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span>Home</span></div>
+<div class="nav-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><span>Discover</span></div>
+<div class="nav-item active"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span>Routine</span></div>
+<div class="nav-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><span>Ask JAY</span></div>
+<div class="nav-item"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Profile</span></div>
+</div>
+</div></div>
+
+</div>
+
+<!-- ==================== FEATURE REF ==================== -->
+<div class="section-label">Feature reference</div>
+<div style="max-width:700px;margin:0 auto 60px;padding:0 20px">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+
+<div style="border:0.5px solid #E5E5E5;border-radius:14px;padding:16px;background:#fff">
+<div style="font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Daily tracker</div>
+<div style="font-size:12px;color:#666;line-height:1.6">
+AM/PM toggle<br>
+Progress ring (steps done/total)<br>
+Tap to complete each step<br>
+Skip with reason<br>
+Wait time indicators<br>
+Frequency badges (daily, 3x/wk)<br>
+Conflict notices for tonight<br>
+Streak counter + 7-day dots
+</div>
+</div>
+
+<div style="border:0.5px solid #E5E5E5;border-radius:14px;padding:16px;background:#fff">
+<div style="font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Build with JAY</div>
+<div style="font-size:12px;color:#666;line-height:1.6">
+AI generates AM + PM routine<br>
+Products from real database<br>
+"Why this product" per step<br>
+Monthly cost calculated<br>
+Conflict check (0 conflicts)<br>
+Save or regenerate<br>
+Tap any step to swap product<br>
+Frequency recommendations
+</div>
+</div>
+
+<div style="border:0.5px solid #E5E5E5;border-radius:14px;padding:16px;background:#fff">
+<div style="font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Routine types</div>
+<div style="font-size:12px;color:#666;line-height:1.6">
+Essential (3-4 steps)<br>
+Complete (5-7, recommended)<br>
+Glass Skin (7-10, K-beauty)<br>
+Anti-Acne (targeted BHA)<br>
+Barrier Repair (no actives)<br>
+Custom (blank canvas)<br>
+JAY picks "recommended" from profile
+</div>
+</div>
+
+<div style="border:0.5px solid #E5E5E5;border-radius:14px;padding:16px;background:#fff">
+<div style="font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Stats + cost</div>
+<div style="font-size:12px;color:#666;line-height:1.6">
+Adherence % (7/30/90 day)<br>
+Current + longest streak<br>
+Weekly bar chart<br>
+Skipped days count<br>
+Monthly cost breakdown<br>
+Per-product cost<br>
+Dupe savings suggestion<br>
+Product usage estimator
+</div>
+</div>
+
+<div style="border:0.5px solid #E5E5E5;border-radius:14px;padding:16px;background:#fff">
+<div style="font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Step features</div>
+<div style="font-size:12px;color:#666;line-height:1.6">
+Product from DB or custom name<br>
+Application instructions<br>
+Wait time between actives<br>
+Frequency (daily, 2x, 3x/week)<br>
+Specific days (Mon, Wed, Fri)<br>
+Essential vs optional flag<br>
+"Why this product" from JAY<br>
+Drag to reorder
+</div>
+</div>
+
+<div style="border:0.5px solid #E5E5E5;border-radius:14px;padding:16px;background:#fff">
+<div style="font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Smart features</div>
+<div style="font-size:12px;color:#666;line-height:1.6">
+Conflict detection (live)<br>
+Tonight's conflict notice<br>
+Seasonal swap suggestions<br>
+Product out-of-stock alerts<br>
+Routine sharing (image/link)<br>
+Product usage tracker<br>
+Step timer for wait times<br>
+Edit mode (pencil icon)
+</div>
+</div>
+
+</div>
+</div>
+
+</body>
+</html>

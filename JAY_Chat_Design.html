@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JAY Chat — Interface Design</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-font-smoothing:antialiased}
+body{font-family:'Outfit',system-ui,sans-serif;background:#F5F5F5;padding:40px 16px;color:#000}
+.page-title{text-align:center;margin-bottom:12px}
+.page-title h1{font-size:13px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#999}
+.page-sub{text-align:center;font-size:12px;color:#CCC;margin-bottom:40px;font-weight:400}
+
+.row{display:flex;flex-wrap:wrap;gap:40px;justify-content:center;margin-bottom:40px}
+.col{display:flex;flex-direction:column;align-items:center;gap:10px}
+.lb{font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:2px}
+
+.ph{width:375px;height:812px;border-radius:48px;background:#FFF;overflow:hidden;position:relative;border:6px solid #111;box-shadow:0 30px 80px rgba(0,0,0,0.08)}
+.sc{height:100%;overflow-y:auto;scrollbar-width:none;padding-bottom:0}
+.sc::-webkit-scrollbar{display:none}
+
+/* Chat header */
+.chat-header{position:sticky;top:0;z-index:10;background:rgba(255,255,255,0.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:0.5px solid #E5E5E5;padding:0}
+.status-bar{display:flex;justify-content:space-between;align-items:center;padding:12px 28px 0;font-size:13px;font-weight:600}
+.header-main{display:flex;align-items:center;justify-content:space-between;padding:10px 20px 12px}
+.header-left{display:flex;align-items:center;gap:12px}
+.header-back{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.jay-header-avatar{width:32px;height:32px;background:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.jay-header-avatar span{color:#fff;font-size:14px;font-weight:700;font-family:'Arial Black','Impact','Outfit',sans-serif}
+.header-info h2{font-size:15px;font-weight:600;letter-spacing:-0.2px}
+.header-info p{font-size:11px;color:#999;font-weight:400;margin-top:1px}
+.header-right{display:flex;align-items:center;gap:4px}
+.header-btn{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+
+/* Mode selector */
+.mode-bar{display:flex;gap:6px;padding:0 20px 12px;overflow-x:auto}
+.mode-chip{padding:5px 14px;border-radius:100px;font-size:11px;font-weight:500;border:0.5px solid #E5E5E5;white-space:nowrap;color:#999}
+.mode-chip.active{background:#000;color:#fff;border-color:#000}
+
+/* Messages area */
+.messages{padding:16px 16px 20px;display:flex;flex-direction:column;gap:20px}
+
+/* Context banner */
+.context-banner{display:flex;align-items:center;gap:8px;padding:8px 14px;background:#F8F8F8;border-radius:10px;margin:0 4px 4px}
+.context-dot{width:5px;height:5px;background:#000;border-radius:50%;flex-shrink:0}
+.context-banner p{font-size:11px;color:#999;line-height:1.4}
+.context-banner p span{color:#000;font-weight:500}
+
+/* JAY message */
+.msg-jay{display:flex;gap:8px;align-items:flex-start}
+.jay-avatar{width:26px;height:26px;background:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.jay-avatar span{color:#fff;font-size:11px;font-weight:800;font-family:'Arial Black','Impact','Outfit',sans-serif}
+.msg-jay-content{max-width:280px;display:flex;flex-direction:column;gap:6px}
+.bubble-jay{background:#F5F5F5;border-radius:2px 16px 16px 16px;padding:12px 14px}
+.bubble-jay p{font-size:13.5px;line-height:1.6;color:#222}
+.bubble-jay p strong{font-weight:600}
+
+/* User message */
+.msg-user{display:flex;justify-content:flex-end}
+.bubble-user{background:#000;border-radius:16px 2px 16px 16px;padding:12px 14px;max-width:265px}
+.bubble-user p{font-size:13.5px;line-height:1.6;color:#fff}
+
+/* Timestamp */
+.msg-time{font-size:10px;color:#CCC;margin-top:2px;font-weight:400}
+.msg-time-right{text-align:right}
+
+/* Message actions bar */
+.msg-actions{display:flex;gap:2px;margin-top:4px;align-items:center}
+.msg-action{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.msg-action:hover{background:#F5F5F5}
+.msg-action svg{opacity:0.25}
+.msg-action:hover svg{opacity:0.5}
+.msg-action-label{font-size:10px;color:#CCC;margin-left:4px;font-weight:400}
+
+/* Rich content: Product card */
+.product-card{border:0.5px solid #E5E5E5;border-radius:12px;padding:12px;margin-top:8px;background:#fff}
+.product-card-header{display:flex;align-items:center;gap:10px}
+.product-thumb{width:40px;height:40px;background:#F5F5F5;border-radius:8px;display:flex;align-items:center;justify-content:center}
+.product-thumb span{font-size:16px;opacity:0.12}
+.product-info h4{font-size:13px;font-weight:600}
+.product-info p{font-size:11px;color:#999;margin-top:1px}
+.product-meta{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:8px;border-top:0.5px solid #F2F2F2}
+.product-price{font-size:14px;font-weight:700;letter-spacing:-0.3px}
+.product-badge{padding:3px 10px;border-radius:5px;font-size:9px;font-weight:700;letter-spacing:0.8px;color:#fff}
+.badge-slap{background:#000}
+.badge-cap{background:#888}
+.product-action{display:flex;gap:6px;margin-top:10px}
+.product-btn{flex:1;padding:8px;border-radius:8px;text-align:center;font-size:11px;font-weight:600}
+.product-btn-primary{background:#000;color:#fff}
+.product-btn-secondary{border:0.5px solid #E5E5E5}
+
+/* Rich content: Verdict inline */
+.verdict-inline{border:0.5px solid #E5E5E5;border-radius:10px;padding:10px 12px;margin-top:8px;background:#fff;display:flex;align-items:center;gap:10px}
+.verdict-score{font-size:20px;font-weight:700;letter-spacing:-0.5px;min-width:32px}
+.verdict-body h5{font-size:12px;font-weight:600}
+.verdict-body p{font-size:11px;color:#999;margin-top:2px}
+
+/* Rich content: Safety indicator */
+.safety-block{border-left:2.5px solid #000;padding-left:12px;margin-top:10px}
+.safety-block.caution{border-color:#999}
+.safety-block.avoid{border-color:#CCC}
+.safety-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px}
+.safety-label.safe{color:#000}
+.safety-label.caution{color:#999}
+.safety-label.avoid{color:#CCC}
+.safety-block p{font-size:12px;line-height:1.5;color:#444}
+
+/* Rich content: Routine suggestion */
+.routine-suggest{border:0.5px solid #E5E5E5;border-radius:12px;overflow:hidden;margin-top:8px}
+.routine-suggest-header{background:#F8F8F8;padding:10px 12px;display:flex;align-items:center;gap:8px}
+.routine-suggest-header span{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:#999}
+.routine-step{padding:10px 12px;border-top:0.5px solid #F2F2F2;display:flex;align-items:center;gap:10px}
+.step-num{width:22px;height:22px;background:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.step-num span{color:#fff;font-size:10px;font-weight:600}
+.step-info h5{font-size:12px;font-weight:600}
+.step-info p{font-size:11px;color:#999}
+.routine-suggest-footer{padding:10px 12px;border-top:0.5px solid #F2F2F2;text-align:center}
+.routine-suggest-footer a{font-size:12px;color:#000;font-weight:600;text-decoration:none}
+
+/* Suggested prompts */
+.suggestions{display:flex;gap:6px;flex-wrap:wrap;padding:0 4px}
+.suggestion-chip{padding:7px 14px;border:0.5px solid #E5E5E5;border-radius:100px;font-size:12px;font-weight:400;color:#666;white-space:nowrap}
+
+/* Thinking indicator */
+.thinking{display:flex;gap:8px;align-items:flex-start}
+.thinking-dots{display:flex;gap:4px;padding:14px;background:#F5F5F5;border-radius:2px 16px 16px 16px}
+.thinking-dots span{width:6px;height:6px;background:#CCC;border-radius:50%;animation:blink 1.4s infinite}
+.thinking-dots span:nth-child(2){animation-delay:0.2s}
+.thinking-dots span:nth-child(3){animation-delay:0.4s}
+@keyframes blink{0%,80%,100%{opacity:0.3}40%{opacity:1}}
+.thinking-label{font-size:11px;color:#CCC;margin-top:6px;display:flex;align-items:center;gap:6px}
+.thinking-label svg{animation:spin 1.5s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Streaming indicator */
+.streaming-bar{position:absolute;bottom:72px;left:0;right:0;display:flex;justify-content:center;padding:8px;z-index:5}
+.stop-btn{display:flex;align-items:center;gap:6px;padding:8px 18px;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);border-radius:100px;color:#fff;font-size:12px;font-weight:500}
+.stop-icon{width:10px;height:10px;border:1.5px solid #fff;border-radius:2px}
+
+/* Input bar */
+.input-bar{position:absolute;bottom:0;left:0;right:0;z-index:10;background:rgba(255,255,255,0.95);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-top:0.5px solid #E5E5E5;padding:10px 16px 32px}
+.input-row{display:flex;align-items:flex-end;gap:8px}
+.input-actions-left{display:flex;gap:2px}
+.input-action{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.input-field{flex:1;min-height:36px;max-height:120px;background:#F5F5F5;border-radius:20px;padding:8px 16px;font-size:14px;font-family:'Outfit',sans-serif;display:flex;align-items:center;position:relative}
+.input-field span{color:#CCC;font-size:14px}
+.input-send{width:34px;height:34px;background:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.input-send.inactive{background:#E5E5E5}
+
+/* Empty state */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 40px;text-align:center}
+.empty-logo{width:64px;height:64px;background:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:24px}
+.empty-logo span{color:#fff;font-size:24px;font-weight:800;font-family:'Arial Black','Impact','Outfit',sans-serif}
+.empty-state h3{font-size:20px;font-weight:600;margin-bottom:8px;letter-spacing:-0.3px}
+.empty-state p{font-size:13px;color:#999;line-height:1.5;margin-bottom:32px}
+.empty-prompts{display:flex;flex-direction:column;gap:8px;width:100%}
+.empty-prompt-card{border:0.5px solid #E5E5E5;border-radius:12px;padding:14px 16px;text-align:left;display:flex;align-items:center;gap:12px}
+.empty-prompt-icon{width:36px;height:36px;background:#F5F5F5;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.empty-prompt-text h5{font-size:13px;font-weight:600}
+.empty-prompt-text p{font-size:11px;color:#999;margin-top:2px}
+
+/* Chat list */
+.chat-list-header{padding:12px 20px;display:flex;justify-content:space-between;align-items:center}
+.chat-list-header h2{font-size:22px;font-weight:600;letter-spacing:-0.3px}
+.new-chat-btn{width:36px;height:36px;background:#000;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.chat-list-search{margin:0 20px 12px;background:#F5F5F5;border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:8px}
+.chat-list-search span{font-size:13px;color:#CCC}
+.chat-list-item{padding:14px 20px;display:flex;gap:12px;align-items:center;border-bottom:0.5px solid #F5F5F5}
+.chat-list-avatar{width:40px;height:40px;background:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.chat-list-avatar span{color:#fff;font-size:16px;font-weight:800;font-family:'Arial Black','Impact','Outfit',sans-serif}
+.chat-list-content{flex:1;min-width:0}
+.chat-list-content h4{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-list-content p{font-size:12px;color:#999;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-list-meta{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.chat-list-time{font-size:11px;color:#CCC}
+.chat-list-badge{width:18px;height:18px;background:#000;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.chat-list-badge span{color:#fff;font-size:9px;font-weight:600}
+
+.section-label{text-align:center;width:100%;font-size:11px;font-weight:600;color:#CCC;letter-spacing:2px;text-transform:uppercase;margin:20px 0 8px;padding-top:20px;border-top:1px solid #EAEAEA}
+</style>
+</head>
+<body>
+
+<div class="page-title"><h1>JAY Chat Interface</h1></div>
+<div class="page-sub">Modern AI chat — all features</div>
+
+<!-- ===== SCREEN 1: ACTIVE CHAT (full conversation) ===== -->
+<div class="section-label">Active conversation</div>
+<div class="row">
+<div class="col"><div class="lb">Chat with JAY</div>
+<div class="ph">
+<div class="sc">
+
+<!-- Header -->
+<div class="chat-header">
+<div class="status-bar"><span>9:41</span><span style="font-size:11px;letter-spacing:1px">●●●●</span></div>
+<div class="header-main">
+<div class="header-left">
+<div class="header-back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+<div class="jay-header-avatar"><span>J</span></div>
+<div class="header-info">
+<h2>JAY</h2>
+<p>Knows your skin profile</p>
+</div>
+</div>
+<div class="header-right">
+<!-- Search in chat -->
+<div class="header-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/></svg></div>
+<!-- More options -->
+<div class="header-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="5" r="1" fill="#000"/><circle cx="12" cy="12" r="1" fill="#000"/><circle cx="12" cy="19" r="1" fill="#000"/></svg></div>
+</div>
+</div>
+<!-- Mode selector chips -->
+<div class="mode-bar">
+<div class="mode-chip active">General</div>
+<div class="mode-chip">Routine help</div>
+<div class="mode-chip">Product research</div>
+<div class="mode-chip">Ingredient check</div>
+</div>
+</div>
+
+<!-- Messages -->
+<div class="messages">
+
+<!-- Context banner -->
+<div class="context-banner">
+<div class="context-dot"></div>
+<p>Using your profile: <span>Combination skin, acne + dark spots, ₹500-1K budget</span></p>
+</div>
+
+<!-- JAY opening -->
+<div class="msg-jay">
+<div class="jay-avatar"><span>J</span></div>
+<div class="msg-jay-content">
+<div class="bubble-jay">
+<p>Hey Priya! What's on your mind today? I'm up to speed on your profile — combination skin, working on acne and dark spots. Ask me anything.</p>
+</div>
+<div class="msg-time">9:32 AM</div>
+</div>
+</div>
+
+<!-- User message -->
+<div class="msg-user">
+<div>
+<div class="bubble-user"><p>Can I use vitamin C and niacinamide together? I keep seeing conflicting info online</p></div>
+<div class="msg-time msg-time-right">9:33 AM</div>
+</div>
+</div>
+
+<!-- JAY response with rich content -->
+<div class="msg-jay">
+<div class="jay-avatar"><span>J</span></div>
+<div class="msg-jay-content">
+<div class="bubble-jay">
+<p><strong>Short answer: absolutely yes.</strong> The "don't mix them" myth is outdated — modern formulations work perfectly together.</p>
+<p style="margin-top:8px">In fact, they complement each other beautifully. Niacinamide helps with your oily T-zone, vitamin C tackles those dark spots you mentioned.</p>
+
+<!-- Safety indicator -->
+<div class="safety-block">
+<div class="safety-label safe">SAFE TO LAYER</div>
+<p>Apply vitamin C first (thinner), wait 1 min, then niacinamide. Both work at similar pH levels.</p>
+</div>
+</div>
+
+<!-- Product recommendation card -->
+<div class="product-card">
+<div class="product-card-header">
+<div class="product-thumb"><span>🧴</span></div>
+<div class="product-info">
+<h4>Minimalist 10% Vitamin C</h4>
+<p>Minimalist · Serum</p>
+</div>
+</div>
+<div class="product-meta">
+<div class="product-price">₹549</div>
+<div class="product-badge badge-slap">SLAP</div>
+</div>
+<div class="product-action">
+<div class="product-btn product-btn-primary">Add to routine</div>
+<div class="product-btn product-btn-secondary">Full research</div>
+</div>
+</div>
+
+<!-- Message actions -->
+<div class="msg-actions">
+<div class="msg-action"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></div>
+<div class="msg-action"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg></div>
+<div class="msg-action"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round"><path d="M14 9V5a3 3 0 00-5.12-2.12L3 9h4a2 2 0 012 2v6a2 2 0 002 2h0"/><path d="M18 9h2a2 2 0 012 2v3.17"/></svg></div>
+<div class="msg-action"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round"><path d="M10 15v4a3 3 0 003.12 2.12L19 15h-4a2 2 0 01-2-2V7a2 2 0 00-2-2h0"/><path d="M6 15H4a2 2 0 01-2-2v-3.17"/></svg></div>
+<div class="msg-action"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg></div>
+<div class="msg-action-label">Copy · Retry · Like · Dislike · Share</div>
+</div>
+
+<div class="msg-time">9:33 AM</div>
+</div>
+</div>
+
+<!-- User follow-up -->
+<div class="msg-user">
+<div>
+<div class="bubble-user"><p>Great! What about adding retinol? Can I use all three?</p></div>
+<div class="msg-time msg-time-right">9:34 AM</div>
+</div>
+</div>
+
+<!-- JAY response with routine suggestion -->
+<div class="msg-jay">
+<div class="jay-avatar"><span>J</span></div>
+<div class="msg-jay-content">
+<div class="bubble-jay">
+<p>Yes, but <strong>not all in the same session.</strong> Retinol + Vitamin C in the same routine can cause irritation — especially with your acne-prone skin.</p>
+<p style="margin-top:8px">Here's how I'd split them:</p>
+</div>
+
+<!-- Routine recommendation block -->
+<div class="routine-suggest">
+<div class="routine-suggest-header">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+<span>Suggested routine split</span>
+</div>
+<div class="routine-step">
+<div class="step-num"><span>AM</span></div>
+<div class="step-info">
+<h5>Vitamin C + Niacinamide</h5>
+<p>Cleanser → Vitamin C → Niacinamide → Moisturizer → SPF</p>
+</div>
+</div>
+<div class="routine-step">
+<div class="step-num"><span>PM</span></div>
+<div class="step-info">
+<h5>Retinol alone</h5>
+<p>Cleanser → Retinol → Moisturizer (buffer)</p>
+</div>
+</div>
+<div class="routine-suggest-footer">
+<a href="#">Apply this to my routine →</a>
+</div>
+</div>
+
+<!-- Caution block -->
+<div style="margin-top:10px">
+<div class="safety-block caution">
+<div class="safety-label caution">CAUTION</div>
+<p>Start retinol at 0.3% if you're new to it. Your combination skin can handle it, but ease in — 2x/week first, then build up.</p>
+</div>
+</div>
+
+<!-- Actions -->
+<div class="msg-actions">
+<div class="msg-action"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></div>
+<div class="msg-action"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg></div>
+<div class="msg-action"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round"><path d="M14 9V5a3 3 0 00-5.12-2.12L3 9h4a2 2 0 012 2v6a2 2 0 002 2h0"/><path d="M18 9h2a2 2 0 012 2v3.17"/></svg></div>
+<div class="msg-action"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round"><path d="M10 15v4a3 3 0 003.12 2.12L19 15h-4a2 2 0 01-2-2V7a2 2 0 00-2-2h0"/><path d="M6 15H4a2 2 0 01-2-2v-3.17"/></svg></div>
+<div class="msg-action"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg></div>
+</div>
+
+<div class="msg-time">9:34 AM</div>
+</div>
+</div>
+
+<!-- Suggested follow-ups -->
+<div class="suggestions">
+<div class="suggestion-chip">Which retinol product?</div>
+<div class="suggestion-chip">Retinol purging vs breakout?</div>
+<div class="suggestion-chip">Apply this routine</div>
+</div>
+
+<!-- Bottom padding for input bar -->
+<div style="height:90px"></div>
+</div>
+</div><!-- end scroll -->
+
+<!-- Input bar -->
+<div class="input-bar">
+<div class="input-row">
+<div class="input-actions-left">
+<!-- Attach/camera -->
+<div class="input-action"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg></div>
+</div>
+<div class="input-field"><span>Ask JAY anything...</span></div>
+<!-- Voice -->
+<div class="input-action"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" stroke-linecap="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></div>
+<!-- Send -->
+<div class="input-send inactive"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg></div>
+</div>
+</div>
+
+</div></div>
+
+
+<!-- ===== SCREEN 2: STREAMING STATE ===== -->
+<div class="col"><div class="lb">Streaming response</div>
+<div class="ph">
+<div class="sc">
+
+<div class="chat-header">
+<div class="status-bar"><span>9:41</span><span style="font-size:11px;letter-spacing:1px">●●●●</span></div>
+<div class="header-main">
+<div class="header-left">
+<div class="header-back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+<div class="jay-header-avatar"><span>J</span></div>
+<div class="header-info">
+<h2>JAY</h2>
+<p style="color:#000;font-weight:500">Thinking...</p>
+</div>
+</div>
+<div class="header-right">
+<div class="header-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/></svg></div>
+<div class="header-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="5" r="1" fill="#000"/><circle cx="12" cy="12" r="1" fill="#000"/><circle cx="12" cy="19" r="1" fill="#000"/></svg></div>
+</div>
+</div>
+</div>
+
+<div class="messages">
+<!-- User message -->
+<div class="msg-user">
+<div>
+<div class="bubble-user"><p>What's the best SPF for oily Indian skin under ₹500?</p></div>
+<div class="msg-time msg-time-right">9:35 AM</div>
+</div>
+</div>
+
+<!-- JAY streaming response (partially rendered) -->
+<div class="msg-jay">
+<div class="jay-avatar"><span>J</span></div>
+<div class="msg-jay-content">
+<div class="bubble-jay">
+<p>Great question! For oily skin in Indian humidity, you need a sunscreen that's <strong>matte-finish</strong>, <strong>non-greasy</strong>, and doesn't pill under moisturizer. Here are my top 3 under ₹500:</p>
+<p style="margin-top:8px"><strong>1. La Shield Mineral SPF 50</strong> — ₹499<br/>Zero white cast, truly matte. The mineral filters sit on top of skin instead of absorbing, so less chance of clogging your already oily T-zone.</p>
+<p style="margin-top:8px"><strong>2. Re'equil Ultra Matte SPF 50</strong> — ₹480<br/>Chemical sunscreen, ultra-light gel texture. Dries down completely matte in about 2 minutes. My pick if you</p>
+<!-- Blinking cursor indicating streaming -->
+<span style="display:inline-block;width:2px;height:14px;background:#000;animation:blink 1s infinite;vertical-align:text-bottom;margin-left:1px"></span>
+</div>
+</div>
+</div>
+
+<div style="height:140px"></div>
+</div>
+
+<!-- Stop generating button -->
+<div class="streaming-bar">
+<div class="stop-btn">
+<div class="stop-icon"></div>
+Stop generating
+</div>
+</div>
+
+<!-- Input bar (disabled during streaming) -->
+<div class="input-bar">
+<div class="input-row">
+<div class="input-actions-left">
+<div class="input-action"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#CCC" stroke-width="1.5" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg></div>
+</div>
+<div class="input-field" style="opacity:0.4"><span>JAY is responding...</span></div>
+<div class="input-action"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#CCC" stroke-width="1.5" stroke-linecap="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></div>
+<div class="input-send inactive"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg></div>
+</div>
+</div>
+
+</div></div>
+</div>
+
+<!-- ===== SCREEN 3: EMPTY STATE + CHAT LIST ===== -->
+<div class="section-label">Empty state + History</div>
+<div class="row">
+
+<!-- New conversation -->
+<div class="col"><div class="lb">New conversation</div>
+<div class="ph">
+<div class="sc">
+
+<div class="chat-header">
+<div class="status-bar"><span>9:41</span><span style="font-size:11px;letter-spacing:1px">●●●●</span></div>
+<div class="header-main">
+<div class="header-left">
+<div class="header-back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+<div class="jay-header-avatar"><span>J</span></div>
+<div class="header-info">
+<h2>New conversation</h2>
+<p>Ask JAY anything about skincare</p>
+</div>
+</div>
+<div class="header-right">
+<div class="header-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="5" r="1" fill="#000"/><circle cx="12" cy="12" r="1" fill="#000"/><circle cx="12" cy="19" r="1" fill="#000"/></svg></div>
+</div>
+</div>
+</div>
+
+<!-- Empty state -->
+<div class="empty-state">
+<div class="empty-logo"><span>J</span></div>
+<h3>Hey Priya!</h3>
+<p>I know your skin — combination type, working on acne and dark spots, ₹500-1K budget. Ask me anything or pick a topic below.</p>
+
+<div class="empty-prompts">
+<div class="empty-prompt-card">
+<div class="empty-prompt-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="1.5" stroke-linecap="round"><path d="M10 2v7.5a2 2 0 01-.2.9L4.7 20.6a1 1 0 00.9 1.4h12.8a1 1 0 00.9-1.4l-5.1-10.2a2 2 0 01-.2-.9V2"/><path d="M8.5 2h7"/></svg></div>
+<div class="empty-prompt-text">
+<h5>Check ingredient compatibility</h5>
+<p>"Can I mix salicylic acid with niacinamide?"</p>
+</div>
+</div>
+<div class="empty-prompt-card">
+<div class="empty-prompt-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+<div class="empty-prompt-text">
+<h5>Build my routine</h5>
+<p>"Create an AM routine for acne-prone skin"</p>
+</div>
+</div>
+<div class="empty-prompt-card">
+<div class="empty-prompt-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="1.5" stroke-linecap="round"><path d="M16 3l5 5-5 5"/><path d="M21 8H9"/><path d="M8 21l-5-5 5-5"/><path d="M3 16h12"/></svg></div>
+<div class="empty-prompt-text">
+<h5>Find a dupe</h5>
+<p>"What's a cheaper alternative to Drunk Elephant?"</p>
+</div>
+</div>
+<div class="empty-prompt-card">
+<div class="empty-prompt-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div>
+<div class="empty-prompt-text">
+<h5>Research a product</h5>
+<p>"Is Minimalist Vitamin C actually good?"</p>
+</div>
+</div>
+</div>
+</div>
+
+<div style="height:80px"></div>
+</div>
+
+<!-- Input bar -->
+<div class="input-bar">
+<div class="input-row">
+<div class="input-actions-left">
+<div class="input-action"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg></div>
+</div>
+<div class="input-field"><span>Ask JAY anything...</span></div>
+<div class="input-action"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" stroke-linecap="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></div>
+<div class="input-send inactive"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg></div>
+</div>
+</div>
+</div></div>
+
+
+<!-- Chat history list -->
+<div class="col"><div class="lb">Conversation history</div>
+<div class="ph">
+<div class="sc">
+
+<div class="status-bar" style="padding:12px 28px 0;font-size:13px;font-weight:600"><span>9:41</span><span style="font-size:11px;letter-spacing:1px">●●●●</span></div>
+
+<div class="chat-list-header">
+<h2>Conversations</h2>
+<div class="new-chat-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+</div>
+
+<div class="chat-list-search">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#CCC" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/></svg>
+<span>Search conversations...</span>
+</div>
+
+<!-- Today -->
+<div style="padding:12px 20px 4px"><span style="font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:2px">Today</span></div>
+
+<div class="chat-list-item">
+<div class="chat-list-avatar"><span>J</span></div>
+<div class="chat-list-content">
+<h4>Vitamin C + Niacinamide combo</h4>
+<p>Apply vitamin C first, wait 1 min, then niacinamide...</p>
+</div>
+<div class="chat-list-meta">
+<span class="chat-list-time">9:34 AM</span>
+<div class="chat-list-badge"><span>2</span></div>
+</div>
+</div>
+
+<div class="chat-list-item">
+<div class="chat-list-avatar"><span>J</span></div>
+<div class="chat-list-content">
+<h4>Best SPF for oily skin under ₹500</h4>
+<p>La Shield Mineral SPF 50 is my top pick — zero white cast...</p>
+</div>
+<div class="chat-list-meta">
+<span class="chat-list-time">9:35 AM</span>
+</div>
+</div>
+
+<!-- Yesterday -->
+<div style="padding:16px 20px 4px"><span style="font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:2px">Yesterday</span></div>
+
+<div class="chat-list-item">
+<div class="chat-list-avatar"><span>J</span></div>
+<div class="chat-list-content">
+<h4>Why is my skin oily by noon?</h4>
+<p>Combination skin produces more sebum in the T-zone...</p>
+</div>
+<div class="chat-list-meta">
+<span class="chat-list-time">Yesterday</span>
+</div>
+</div>
+
+<div class="chat-list-item">
+<div class="chat-list-avatar"><span>J</span></div>
+<div class="chat-list-content">
+<h4>Retinol beginner routine</h4>
+<p>Start with 0.3% retinol, 2 nights/week. Always buffer...</p>
+</div>
+<div class="chat-list-meta">
+<span class="chat-list-time">Yesterday</span>
+</div>
+</div>
+
+<!-- This week -->
+<div style="padding:16px 20px 4px"><span style="font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:2px">This week</span></div>
+
+<div class="chat-list-item">
+<div class="chat-list-avatar"><span>J</span></div>
+<div class="chat-list-content">
+<h4>Is CeraVe good for Indian skin?</h4>
+<p>CeraVe Foaming is great for your combination skin type...</p>
+</div>
+<div class="chat-list-meta">
+<span class="chat-list-time">Mon</span>
+</div>
+</div>
+
+<div class="chat-list-item">
+<div class="chat-list-avatar"><span>J</span></div>
+<div class="chat-list-content">
+<h4>Dark spots treatment plan</h4>
+<p>For your hyperpigmentation, I recommend a 3-step approach...</p>
+</div>
+<div class="chat-list-meta">
+<span class="chat-list-time">Mon</span>
+</div>
+</div>
+
+<div class="chat-list-item">
+<div class="chat-list-avatar"><span>J</span></div>
+<div class="chat-list-content">
+<h4>Dupe for Drunk Elephant C-Firma</h4>
+<p>Minimalist 10% Vitamin C at ₹549 — 88% ingredient match...</p>
+</div>
+<div class="chat-list-meta">
+<span class="chat-list-time">Sun</span>
+</div>
+</div>
+
+<div class="chat-list-item">
+<div class="chat-list-avatar"><span>J</span></div>
+<div class="chat-list-content">
+<h4>Dairy and acne connection</h4>
+<p>Since you consume dairy daily, this could be contributing...</p>
+</div>
+<div class="chat-list-meta">
+<span class="chat-list-time">Sat</span>
+</div>
+</div>
+
+</div>
+</div></div>
+
+</div>
+
+<!-- ===== FEATURE REFERENCE ===== -->
+<div class="section-label">Feature reference</div>
+<div style="max-width:700px;margin:0 auto 60px;padding:0 20px">
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+
+<div style="border:0.5px solid #E5E5E5;border-radius:14px;padding:16px;background:#fff">
+<div style="font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Chat header</div>
+<div style="font-size:12px;color:#666;line-height:1.6">
+Back button<br>
+JAY avatar + name<br>
+"Knows your profile" indicator<br>
+Search in conversation<br>
+More options (clear, export, share)
+</div>
+</div>
+
+<div style="border:0.5px solid #E5E5E5;border-radius:14px;padding:16px;background:#fff">
+<div style="font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Mode chips</div>
+<div style="font-size:12px;color:#666;line-height:1.6">
+General (default)<br>
+Routine help<br>
+Product research<br>
+Ingredient check<br>
+Adjusts JAY's response style
+</div>
+</div>
+
+<div style="border:0.5px solid #E5E5E5;border-radius:14px;padding:16px;background:#fff">
+<div style="font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Message actions</div>
+<div style="font-size:12px;color:#666;line-height:1.6">
+Copy response text<br>
+Regenerate response<br>
+Thumbs up (good answer)<br>
+Thumbs down (bad answer)<br>
+Share as image/link
+</div>
+</div>
+
+<div style="border:0.5px solid #E5E5E5;border-radius:14px;padding:16px;background:#fff">
+<div style="font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Rich content</div>
+<div style="font-size:12px;color:#666;line-height:1.6">
+Product cards (name, price, SLAP/CAP)<br>
+Routine suggestions (AM/PM split)<br>
+Safety indicators (safe/caution/avoid)<br>
+Verdict badges inline<br>
+Ingredient breakdown tables
+</div>
+</div>
+
+<div style="border:0.5px solid #E5E5E5;border-radius:14px;padding:16px;background:#fff">
+<div style="font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Input bar</div>
+<div style="font-size:12px;color:#666;line-height:1.6">
+Text input with auto-grow<br>
+Attach photo (skin selfie)<br>
+Voice input (speech-to-text)<br>
+Send button (active/inactive)<br>
+Disabled state during streaming
+</div>
+</div>
+
+<div style="border:0.5px solid #E5E5E5;border-radius:14px;padding:16px;background:#fff">
+<div style="font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Streaming</div>
+<div style="font-size:12px;color:#666;line-height:1.6">
+Blinking cursor during generation<br>
+"Thinking..." in header<br>
+Stop generating button<br>
+Input disabled while streaming<br>
+Tokens render word by word
+</div>
+</div>
+
+<div style="border:0.5px solid #E5E5E5;border-radius:14px;padding:16px;background:#fff">
+<div style="font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Empty state</div>
+<div style="font-size:12px;color:#666;line-height:1.6">
+Personalized greeting<br>
+Profile summary shown<br>
+4 starter prompt cards<br>
+Tap to auto-fill + send<br>
+Categories: ingredients, routine, dupe, research
+</div>
+</div>
+
+<div style="border:0.5px solid #E5E5E5;border-radius:14px;padding:16px;background:#fff">
+<div style="font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Conversation list</div>
+<div style="font-size:12px;color:#666;line-height:1.6">
+New chat button (floating)<br>
+Search across conversations<br>
+Grouped by: Today, Yesterday, This week<br>
+Preview of last message<br>
+Unread badge count<br>
+Swipe to delete
+</div>
+</div>
+
+</div>
+</div>
+
+</body>
+</html>
