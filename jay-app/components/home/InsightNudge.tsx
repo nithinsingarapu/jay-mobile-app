@@ -1,17 +1,19 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTheme } from '../../lib/theme';
 
 interface InsightNudgeProps { text: string; }
 
 export function InsightNudge({ text }: InsightNudgeProps) {
   const router = useRouter();
+  const { colors } = useTheme();
   return (
-    <View style={styles.container}>
-      <View style={styles.dot} />
-      <Text style={styles.text}>
+    <View style={[styles.container, { borderColor: colors.separator }]}>
+      <View style={[styles.dot, { backgroundColor: colors.systemBlue }]} />
+      <Text style={[styles.text, { color: colors.secondaryLabel }]}>
         {text}{' '}
-        <Text style={styles.link} onPress={() => router.push('/(screens)/intelligence' as any)}>
+        <Text style={[styles.link, { color: colors.systemBlue }]} onPress={() => router.push('/(screens)/intelligence' as any)}>
           View insight →
         </Text>
       </Text>
@@ -20,8 +22,8 @@ export function InsightNudge({ text }: InsightNudgeProps) {
 }
 
 const styles = StyleSheet.create({
-  container: { marginHorizontal: 24, marginBottom: 24, borderTopWidth: 0.5, borderBottomWidth: 0.5, borderColor: '#E5E5E5', paddingVertical: 16, flexDirection: 'row', alignItems: 'center', gap: 14 },
-  dot: { width: 6, height: 6, backgroundColor: '#333', borderRadius: 3, flexShrink: 0 },
-  text: { flex: 1, fontSize: 13, color: '#666', lineHeight: 20, fontFamily: 'Outfit' },
-  link: { color: '#000', fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
+  container: { marginHorizontal: 20, marginBottom: 24, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  dot: { width: 6, height: 6, borderRadius: 3, flexShrink: 0 },
+  text: { flex: 1, fontSize: 15, lineHeight: 22, fontFamily: 'Outfit' },
+  link: { fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
 });

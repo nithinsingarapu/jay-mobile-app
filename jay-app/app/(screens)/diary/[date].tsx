@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TopBar } from '../../../components/ui/TopBar';
 import { Button } from '../../../components/ui/Button';
 import { useDiaryStore } from '../../../stores/diaryStore';
+import { useTheme } from '../../../lib/theme';
 
 const MOODS = [
   { value: 1, emoji: '😞', label: 'Bad' },
@@ -19,6 +20,7 @@ const TAGS = ['Hydrated', 'Glowing', 'Oily', 'Dry', 'Breakout', 'Clear', 'Smooth
 export default function DiaryEntryScreen() {
   const { date } = useLocalSearchParams<{ date: string }>();
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const { getEntryByDate, addEntry } = useDiaryStore();
   const existing = getEntryByDate(date);
 
@@ -37,7 +39,7 @@ export default function DiaryEntryScreen() {
   const displayDate = date ? new Date(date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }) : '';
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.systemBackground }]}>
       <TopBar title={displayDate} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {/* Mood selector */}
@@ -77,7 +79,7 @@ export default function DiaryEntryScreen() {
         <TextInput
           style={styles.notesInput}
           placeholder="How did your skin feel today? Any observations..."
-          placeholderTextColor="#CCC"
+          placeholderTextColor={colors.placeholderText}
           value={notes}
           onChangeText={setNotes}
           multiline
@@ -92,19 +94,19 @@ export default function DiaryEntryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1 },
   content: { paddingHorizontal: 24, paddingBottom: 40 },
-  label: { fontSize: 10, color: '#999', fontWeight: '600', letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 14, fontFamily: 'Outfit-SemiBold' },
+  label: { fontSize: 10, color: '#8E8E93', fontWeight: '600', letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 14, fontFamily: 'Outfit-SemiBold' },
   moodRow: { flexDirection: 'row', justifyContent: 'space-between' },
   moodItem: { alignItems: 'center', gap: 6, padding: 10, borderRadius: 12, borderWidth: 0.5, borderColor: '#E5E5E5', flex: 1, marginHorizontal: 3 },
   moodItemActive: { backgroundColor: '#000', borderColor: '#000' },
   moodEmoji: { fontSize: 22 },
-  moodLabel: { fontSize: 10, color: '#999', fontFamily: 'Outfit-Medium' },
+  moodLabel: { fontSize: 10, color: '#8E8E93', fontFamily: 'Outfit-Medium' },
   moodLabelActive: { color: '#fff' },
   tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   tag: { borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 100, paddingVertical: 7, paddingHorizontal: 14 },
   tagActive: { backgroundColor: '#000', borderColor: '#000' },
   tagText: { fontSize: 13, fontFamily: 'Outfit-Medium' },
   tagTextActive: { color: '#fff' },
-  notesInput: { borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 12, padding: 14, fontSize: 14, fontFamily: 'Outfit', color: '#000', minHeight: 100, textAlignVertical: 'top' },
+  notesInput: { borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 12, padding: 14, fontSize: 14, fontFamily: 'Outfit', color: '#8E8E93', minHeight: 100, textAlignVertical: 'top' },
 });

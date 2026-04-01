@@ -1,115 +1,224 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ScrollView, View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { ScoreRing } from '../../components/ui/ScoreRing';
-import { SearchBar } from '../../components/ui/SearchBar';
 import { QuickActionsGrid } from '../../components/home/QuickActionsGrid';
 import { RoutineCarousel } from '../../components/home/RoutineCarousel';
 import { ForYouCarousel } from '../../components/home/ForYouCarousel';
 import { InsightNudge } from '../../components/home/InsightNudge';
 import { CapSlapPreview } from '../../components/home/CapSlapPreview';
+import { EnvironmentBar } from '../../components/home/EnvironmentBar';
 import { useUserStore } from '../../stores/userStore';
 import { useRoutineStore } from '../../stores/routineStore';
+import { useTheme } from '../../lib/theme';
 import { mockDiscoverArticles, mockCapSlapVerdicts } from '../../constants/mockData';
+import { TYPE, SPACE, RADIUS } from '../../constants/theme';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, backendProfile, profileLoading } = useUserStore();
+  const { user, profileLoading } = useUserStore();
   const routineStore = useRoutineStore();
+  const { colors, isDark } = useTheme();
   const [period, setPeriod] = useState<'AM' | 'PM'>('AM');
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const firstName = user.name ? user.name.split(' ')[0] : 'there';
+
+  useEffect(() => { routineStore.init(); }, []);
+
+  const routineSteps = useMemo(() => {
+    const routine = period === 'AM' ? routineStore.amRoutine : routineStore.pmRoutine;
+    const todayStatus = period === 'AM' ? routineStore.amTodayStatus : routineStore.pmTodayStatus;
+    if (!routine?.steps?.length) return [];
+    return routine.steps.map((step, i) => {
+      const ss = todayStatus?.steps?.find((s) => s.step_id === step.id);
+      return {
+        id: step.id,
+        step: step.step_order ?? i + 1,
+        category: step.category.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+        product: step.product_name || step.custom_product_name || '',
+        brand: step.product_brand || step.custom_product_name || step.product_name || '',
+        instruction: step.instruction || '',
+        completed: ss?.completed ?? false,
+      };
+    });
+  }, [period, routineStore.amRoutine, routineStore.pmRoutine, routineStore.amTodayStatus, routineStore.pmTodayStatus]);
 
   return (
     <ScrollView
-      style={styles.container}
+      style={{ flex: 1, backgroundColor: colors.systemBackground }}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 100 }}
     >
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>{greeting},</Text>
-          <Text style={styles.name}>{user.name || 'there'}.</Text>
+      {/* ── Header ─────────────────────────────────────────── */}
+      <View style={$.header}>
+        <View style={{ flex: 1 }}>
+          <Text style={[$.greeting, { color: colors.secondaryLabel }]}>{greeting},</Text>
+          <Text style={[$.name, { color: colors.label }]}>{firstName}</Text>
         </View>
-        <View style={styles.headerRight}>
-          <Pressable onPress={() => router.push('/(screens)/notifications' as any)} accessible accessibilityLabel="Notifications">
-            <View style={{ position: 'relative' }}>
-              <Svg width={21} height={21} viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="1.6" strokeLinecap="round">
-                <Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                <Path d="M13.73 21a2 2 0 0 1-3.46 0" />
-              </Svg>
-              <View style={styles.notifDot} />
-            </View>
+        <View style={$.headerRight}>
+          <Pressable onPress={() => router.push('/(screens)/notifications' as any)} style={[$.iconBtn, { backgroundColor: colors.quaternarySystemFill }]}>
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.label} strokeWidth="1.5" strokeLinecap="round">
+              <Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <Path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </Svg>
           </Pressable>
-          <Pressable onPress={() => router.push('/(tabs)/profile' as any)} accessible accessibilityLabel="Profile">
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{(user.name || '?')[0]}</Text>
+          <Pressable onPress={() => router.push('/(tabs)/profile' as any)}>
+            <View style={[$.avatar, { backgroundColor: colors.systemBlue }]}>
+              <Text style={$.avatarText}>{(user.name || '?')[0]}</Text>
             </View>
           </Pressable>
         </View>
       </View>
 
-      {/* Search */}
-      <View style={styles.searchWrapper}>
-        <SearchBar placeholder="Search products, ingredients..." />
+      {/* ── Environment Bar ──────────────────────────────────── */}
+      <EnvironmentBar />
+
+      {/* ── Profile Health Card ─────────────────────────────── */}
+      <View style={[$.card, { backgroundColor: colors.secondarySystemBackground }]}>
+        {profileLoading ? (
+          <Text style={[$.cardHint, { color: colors.tertiaryLabel }]}>Loading your profile...</Text>
+        ) : (
+          <View style={$.cardInner}>
+            <ScoreRing score={user.profileCompleteness} size={60} />
+            <View style={{ flex: 1 }}>
+              <Text style={[$.cardOverline, { color: colors.secondaryLabel }]}>PROFILE HEALTH</Text>
+              <Text style={[$.cardTitle, { color: colors.label }]}>
+                {user.profileCompleteness >= 70 ? 'Looking great!' : user.profileCompleteness >= 30 ? 'Getting there' : 'Just getting started'}
+              </Text>
+              <Text style={[$.cardSub, { color: colors.tertiaryLabel }]}>{user.profileCompleteness}% complete · {user.level}</Text>
+            </View>
+          </View>
+        )}
       </View>
 
-      {/* Skin Health Card */}
-      {profileLoading ? (
-        <View style={[styles.scoreCard, { height: 100, justifyContent: 'center', alignItems: 'center' }]}>
-          <Text style={{ fontSize: 13, color: '#999', fontFamily: 'Outfit' }}>Loading your profile...</Text>
-        </View>
-      ) : (
-        <View style={styles.scoreCard}>
-          <ScoreRing score={user.profileCompleteness} size={64} />
-          <View style={styles.scoreInfo}>
-            <Text style={styles.microLabel}>PROFILE HEALTH</Text>
-            <Text style={styles.scoreTitle}>{user.profileCompleteness >= 70 ? 'Looking great!' : user.profileCompleteness >= 30 ? 'Getting there' : 'Just getting started'}</Text>
-            <Text style={styles.scoreSubtitle}>{user.profileCompleteness}% complete · {user.level}</Text>
+      {/* ── Streak Card (if streak > 0) ─────────────────────── */}
+      {routineStore.streak.current_streak > 0 ? (
+        <View style={[$.streakCard, { backgroundColor: isDark ? '#1A1500' : '#FFF8E1' }]}>
+          <Text style={$.streakEmoji}>🔥</Text>
+          <View>
+            <Text style={[$.streakNum, { color: colors.label }]}>{routineStore.streak.current_streak} day streak</Text>
+            <Text style={[$.streakSub, { color: colors.secondaryLabel }]}>Keep it going!</Text>
           </View>
         </View>
-      )}
+      ) : null}
 
-      {/* Quick Actions */}
+      {/* ── Quick Actions ──────────────────────────────────── */}
       <QuickActionsGrid />
 
-      {/* Today's Routine */}
+      {/* ── Today's Routine ────────────────────────────────── */}
       <RoutineCarousel
-        steps={[]}
+        steps={routineSteps}
         period={period}
         onTogglePeriod={() => setPeriod(period === 'AM' ? 'PM' : 'AM')}
       />
 
-      {/* For You */}
+      {/* ── For You ────────────────────────────────────────── */}
       <ForYouCarousel articles={mockDiscoverArticles} />
 
-      {/* Insight Nudge */}
+      {/* ── Insight ────────────────────────────────────────── */}
       <InsightNudge text="Your skin responds well to niacinamide — 8 good days since adding it." />
 
-      {/* Cap or Slap */}
+      {/* ── Cap or Slap ────────────────────────────────────── */}
       <CapSlapPreview verdicts={mockCapSlapVerdicts} />
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 24, paddingBottom: 16 },
-  greeting: { fontSize: 24, fontWeight: '600', letterSpacing: -0.3, lineHeight: 29, fontFamily: 'Outfit-SemiBold' },
-  name: { fontSize: 24, fontWeight: '600', letterSpacing: -0.3, fontFamily: 'Outfit-SemiBold' },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  notifDot: { position: 'absolute', top: 0, right: 0, width: 6, height: 6, backgroundColor: '#888', borderRadius: 3, borderWidth: 1.5, borderColor: '#fff' },
-  avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: '#fff', fontSize: 14, fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
-  searchWrapper: { paddingHorizontal: 24, marginBottom: 20 },
-  scoreCard: { marginHorizontal: 24, marginBottom: 24, borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 16, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 20 },
-  scoreInfo: { flex: 1 },
-  microLabel: { fontSize: 10, color: '#999', fontWeight: '600', letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'Outfit-SemiBold' },
-  scoreTitle: { fontSize: 14, fontWeight: '600', marginTop: 5, fontFamily: 'Outfit-SemiBold' },
-  scoreSubtitle: { fontSize: 13, color: '#999', marginTop: 3, fontFamily: 'Outfit' },
+const $ = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACE.xl,
+    paddingBottom: SPACE.lg,
+  },
+  greeting: {
+    ...TYPE.subheadline,
+  },
+  name: {
+    ...TYPE.largeTitle,
+    marginTop: 2,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  iconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+    fontFamily: 'Outfit-SemiBold',
+  },
+
+  // Card
+  card: {
+    marginHorizontal: SPACE.xl,
+    marginBottom: SPACE.xl,
+    borderRadius: RADIUS.md, // iOS standard 12pt
+    padding: SPACE.lg,
+  },
+  cardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  cardOverline: {
+    ...TYPE.caption2,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    fontFamily: 'Outfit-SemiBold',
+  },
+  cardTitle: {
+    ...TYPE.headline,
+    marginTop: 4,
+  },
+  cardSub: {
+    ...TYPE.caption1,
+    marginTop: 2,
+  },
+  cardHint: {
+    ...TYPE.footnote,
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
+
+  // Streak
+  streakCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginHorizontal: SPACE.xl,
+    marginBottom: SPACE.xl,
+    borderRadius: RADIUS.md,
+    padding: SPACE.lg,
+  },
+  streakEmoji: { fontSize: 28 },
+  streakNum: {
+    ...TYPE.headline,
+  },
+  streakSub: {
+    ...TYPE.caption1,
+    marginTop: 2,
+  },
 });

@@ -5,15 +5,17 @@ import { TopBar } from '../../components/ui/TopBar';
 import { Chip } from '../../components/ui/Chip';
 import { PostCard } from '../../components/community/PostCard';
 import { mockCommunityPosts } from '../../constants/mockData';
+import { useTheme } from '../../lib/theme';
 
 const FILTERS = ['Latest', 'Popular', 'Questions', 'Progress'];
 
 export default function CommunityScreen() {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const [activeFilter, setActiveFilter] = useState('Latest');
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.systemBackground }]}>
       <View style={styles.header}>
         <TopBar title="Community" />
         <Pressable style={styles.newPostBtn} accessible accessibilityLabel="New post">
@@ -37,7 +39,7 @@ export default function CommunityScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: 24 },
   newPostBtn: { borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 100, paddingVertical: 7, paddingHorizontal: 14 },
   newPostText: { fontSize: 12, fontWeight: '500', fontFamily: 'Outfit-Medium' },

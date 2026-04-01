@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, Text, StyleSheet, ViewStyle } from 'react-native';
+import { useTheme } from '../../lib/theme';
 
 interface ChipProps {
   label: string;
@@ -9,47 +10,27 @@ interface ChipProps {
 }
 
 export function Chip({ label, active = false, onPress, style }: ChipProps) {
+  const { colors } = useTheme();
   return (
     <Pressable
-      style={[styles.chip, active ? styles.chipActive : styles.chipInactive, style]}
+      style={[
+        styles.chip,
+        active
+          ? { backgroundColor: colors.systemBlue }
+          : { backgroundColor: colors.quaternarySystemFill },
+        style,
+      ]}
       onPress={onPress}
-      accessible={true}
       accessibilityLabel={label}
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
     >
-      <Text style={[styles.text, active ? styles.textActive : styles.textInactive]}>{label}</Text>
+      <Text style={[styles.text, { color: active ? '#fff' : colors.label }]}>{label}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  chip: {
-    borderRadius: 100,
-    paddingVertical: 7,
-    paddingHorizontal: 16,
-  },
-  chipActive: {
-    backgroundColor: '#000',
-    borderWidth: 0.5,
-    borderColor: '#000',
-  },
-  chipInactive: {
-    backgroundColor: 'transparent',
-    borderWidth: 0.5,
-    borderColor: '#E5E5E5',
-  },
-  text: {
-    fontSize: 12,
-    fontFamily: 'Outfit-Medium',
-  },
-  textActive: {
-    color: '#fff',
-    fontWeight: '600',
-    fontFamily: 'Outfit-SemiBold',
-  },
-  textInactive: {
-    color: '#000',
-    fontWeight: '500',
-  },
+  chip: { borderRadius: 100, paddingVertical: 7, paddingHorizontal: 16 },
+  text: { fontSize: 13, fontWeight: '500', fontFamily: 'Outfit-Medium' },
 });

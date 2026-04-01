@@ -6,6 +6,7 @@ import { TopBar } from '../../../components/ui/TopBar';
 import { ScoreRing } from '../../../components/ui/ScoreRing';
 import { Button } from '../../../components/ui/Button';
 import { mockResearchProduct } from '../../../constants/mockData';
+import { useTheme } from '../../../lib/theme';
 
 function ModuleStatusIcon({ status }: { status: 'done' | 'in-progress' | 'pending' }) {
   if (status === 'done') {
@@ -29,10 +30,11 @@ function ModuleStatusIcon({ status }: { status: 'done' | 'in-progress' | 'pendin
 
 export default function ResearchScreen() {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const { name, brand, price, jayScore, recommendation, modules } = mockResearchProduct;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.systemBackground }]}>
       <TopBar title="Jay Research" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {/* Product hero */}
@@ -85,16 +87,16 @@ export default function ResearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1 },
   content: { paddingHorizontal: 24, paddingBottom: 40 },
   heroCard: { borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 14, padding: 16, marginBottom: 24, alignItems: 'center' },
   productCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   productInitial: { fontSize: 24, fontWeight: '700', fontFamily: 'Outfit-Bold' },
   productName: { fontSize: 20, fontWeight: '600', letterSpacing: -0.2, textAlign: 'center', fontFamily: 'Outfit-SemiBold' },
-  brandText: { fontSize: 13, color: '#999', marginTop: 4, fontFamily: 'Outfit' },
+  brandText: { fontSize: 13, color: '#8E8E93', marginTop: 4, fontFamily: 'Outfit' },
   scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 16, width: '100%' },
   scoreInfo: { flex: 1 },
-  scoreLabel: { fontSize: 10, color: '#999', fontWeight: '600', letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'Outfit-SemiBold' },
+  scoreLabel: { fontSize: 10, color: '#8E8E93', fontWeight: '600', letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'Outfit-SemiBold' },
   recommendation: { fontSize: 13, lineHeight: 19, marginTop: 4, fontFamily: 'Outfit' },
   sectionTitle: { fontSize: 18, fontWeight: '600', letterSpacing: -0.2, marginBottom: 14, fontFamily: 'Outfit-SemiBold' },
   moduleList: { borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 14, overflow: 'hidden', marginBottom: 24 },
@@ -107,8 +109,8 @@ const styles = StyleSheet.create({
   diamond: { width: 8, height: 8, backgroundColor: '#000', transform: [{ rotate: '45deg' }] },
   moduleInfo: { flex: 1 },
   moduleName: { fontSize: 14, fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
-  moduleDesc: { fontSize: 12, color: '#999', marginTop: 2, fontFamily: 'Outfit' },
-  moduleTime: { fontSize: 12, color: '#999', fontFamily: 'Outfit' },
+  moduleDesc: { fontSize: 12, color: '#8E8E93', marginTop: 2, fontFamily: 'Outfit' },
+  moduleTime: { fontSize: 12, color: '#8E8E93', fontFamily: 'Outfit' },
   actions: { gap: 10 },
   twoButtons: { flexDirection: 'row', gap: 10 },
 });

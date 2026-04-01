@@ -1,4 +1,6 @@
 import { User } from '@supabase/supabase-js';
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../lib/supabase';
 
 export interface AuthUser {
@@ -38,4 +40,31 @@ export const authService = {
 
   resetPassword: (email: string) =>
     supabase.auth.resetPasswordForEmail(email),
+
+  signInWithOAuth: async (provider: 'google' | 'apple') => {
+    const redirectTo = Linking.createURL('onboarding/callback');
+    console.log('[JAY OAuth] Redirect URL:', redirectTo);
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo, skipBrowserRedirect: true },
+    });
+    if (error || !data.url) return { error: error || new Error('No OAuth URL') };
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+    if (result.type !== 'success' || !('url' in result)) {
+      return { error: null, cancelled: true };
+    }
+    // Extract tokens from the redirect URL fragment
+    const url = new URL(result.url);
+    const params = new URLSearchParams(url.hash.substring(1));
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    if (accessToken && refreshToken) {
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+      if (sessionError) return { error: sessionError };
+    }
+    return { error: null };
+  },
 };

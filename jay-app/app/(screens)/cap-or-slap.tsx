@@ -4,15 +4,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TopBar } from '../../components/ui/TopBar';
 import { Chip } from '../../components/ui/Chip';
 import { mockCapSlapVerdicts } from '../../constants/mockData';
+import { useTheme } from '../../lib/theme';
 
 const FILTERS = ['All', 'Products', 'Trends', 'Remedies'];
 
 export default function CapOrSlapScreen() {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const [activeFilter, setActiveFilter] = useState('All');
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.systemBackground }]}>
       <TopBar title="Cap or Slap" />
       <View style={styles.filterRow}>
         {FILTERS.map((f) => (
@@ -47,7 +49,7 @@ export default function CapOrSlapScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1 },
   filterRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 24, paddingBottom: 16 },
   listContent: { paddingHorizontal: 24, paddingBottom: 100 },
   verdictCard: { borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 14, overflow: 'hidden', marginBottom: 14 },
@@ -59,9 +61,9 @@ const styles = StyleSheet.create({
   badgeText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 1, fontFamily: 'Outfit-Bold' },
   cardBody: { padding: 14 },
   productName: { fontSize: 15, fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
-  brandText: { fontSize: 12, color: '#999', marginTop: 2, fontFamily: 'Outfit' },
+  brandText: { fontSize: 12, color: '#8E8E93', marginTop: 2, fontFamily: 'Outfit' },
   score: { fontSize: 28, fontWeight: '700', letterSpacing: -0.5, marginTop: 8, fontFamily: 'Outfit-Bold' },
-  scoreGrey: { color: '#CCC' },
-  reason: { fontSize: 13, color: '#666', marginTop: 4, lineHeight: 19, fontFamily: 'Outfit' },
+  scoreGrey: { color: '#636366' },
+  reason: { fontSize: 13, color: '#8E8E93', marginTop: 4, lineHeight: 19, fontFamily: 'Outfit' },
   readMore: { fontSize: 12, fontWeight: '600', marginTop: 10, fontFamily: 'Outfit-SemiBold' },
 });

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TextInput, FlatList, StyleSheet, Pressable, ScrollView,
-  Platform, Keyboard, ActivityIndicator,
+  Platform, Keyboard, ActivityIndicator, KeyboardAvoidingView,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
@@ -13,6 +13,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useChatStore, type ChatMessage, type ConversationSummary } from '../../stores/chatStore';
 import { useUserStore } from '../../stores/userStore';
+import { useTheme } from '../../lib/theme';
+import { RichText } from '../../components/chat/RichText';
+import { useAudioRecorder, RecordingPresets, requestMicPermission, setAudioModeAsync, transcribeAudio } from '../../services/speech';
+import * as Haptics from 'expo-haptics';
 
 const HW = StyleSheet.hairlineWidth;
 const MODES = ['General', 'Routine help', 'Product research', 'Ingredient check'];
@@ -60,9 +64,83 @@ export default function JayScreen() {
 // CHAT VIEW
 // ══════════════════════════════════════════════════════════════════════════════
 function ChatView({ insets, store, user, onOpenHistory, onBack }: any) {
+  const { colors, isDark } = useTheme();
   const flatRef = useRef<FlatList>(null);
   const [input, setInput] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [modeOpen, setModeOpen] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [recordSec, setRecordSec] = useState(0);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Pulsing animation for mic button
+  const micPulse = useSharedValue(1);
+  const micPulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: micPulse.value }],
+  }));
+
+  const toggleRecording = async () => {
+    if (isRecording) {
+      // Stop recording
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      micPulse.value = withTiming(1, { duration: 200 });
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+      setIsRecording(false);
+      setIsTranscribing(true);
+
+      recorder.stop();
+      await setAudioModeAsync({ allowsRecording: false });
+
+      const uri = recorder.uri;
+      if (uri) {
+        try {
+          const text = await transcribeAudio(uri);
+          if (text.trim()) {
+            setIsTranscribing(false);
+            setRecordSec(0);
+            send(text);
+            return;
+          }
+        } catch (e: any) {
+          console.error('[JAY Voice] Transcription error:', e.message);
+        }
+      }
+      setIsTranscribing(false);
+      setRecordSec(0);
+    } else {
+      // Start recording
+      try {
+        const granted = await requestMicPermission();
+        if (!granted) return;
+
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        setIsRecording(true);
+        setRecordSec(0);
+
+        // Pulsing animation
+        micPulse.value = withRepeat(
+          withSequence(
+            withTiming(1.25, { duration: 600, easing: Easing.inOut(Easing.ease) }),
+            withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) }),
+          ),
+          -1, true
+        );
+
+        // Duration timer
+        timerRef.current = setInterval(() => setRecordSec((s) => s + 1), 1000);
+
+        await recorder.prepareToRecordAsync();
+        recorder.record();
+      } catch (e: any) {
+        console.error('[JAY Voice] Recording error:', e.message);
+        setIsRecording(false);
+        micPulse.value = withTiming(1, { duration: 200 });
+        if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+      }
+    }
+  };
 
   useEffect(() => {
     const t = setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 60);
@@ -87,38 +165,31 @@ function ChatView({ insets, store, user, onOpenHistory, onBack }: any) {
   const contextLine = [user.skinType, ...user.primaryConcerns.slice(0, 2).map((c: string) => c.replace('_', ' '))].filter(Boolean).join(', ');
 
   return (
-    <View style={[$.screen, { paddingTop: insets.top }]}>
+    <KeyboardAvoidingView style={[$.screen, { paddingTop: insets.top, backgroundColor: colors.systemBackground }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
       {/* ── Header ─────────────────────────────────────── */}
-      <View style={$.header}>
+      <View style={[$.header, { borderBottomColor: colors.separator }]}>
         <View style={$.headerMain}>
           <View style={$.headerLeft}>
             <Pressable onPress={onBack} style={$.headerBackBtn}>
-              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="1.8" strokeLinecap="round"><Path d="M15 18l-6-6 6-6" /></Svg>
+              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.label} strokeWidth="1.8" strokeLinecap="round"><Path d="M15 18l-6-6 6-6" /></Svg>
             </Pressable>
-            <View style={$.jayHeaderAvatar}><Text style={$.jayHeaderJ}>J</Text></View>
+            <View style={[$.jayHeaderAvatar, { backgroundColor: colors.systemIndigo }]}><Text style={$.jayHeaderJ}>J</Text></View>
             <View>
-              <Text style={$.headerTitle}>JAY</Text>
-              <Text style={[$.headerSub, store.isStreaming && { color: '#000', fontWeight: '500' }]}>
+              <Text style={[$.headerTitle, { color: colors.label }]}>JAY</Text>
+              <Text style={[$.headerSub, { color: colors.secondaryLabel }, store.isStreaming && { color: colors.label, fontWeight: '500' }]}>
                 {store.isStreaming ? 'Thinking...' : 'Knows your skin profile'}
               </Text>
             </View>
           </View>
           <View style={$.headerRight}>
             <Pressable onPress={onOpenHistory} style={$.headerBtn}>
-              <Svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="1.8" strokeLinecap="round"><Circle cx="12" cy="12" r="10" /><Polyline points="12 6 12 12 16 14" /></Svg>
+              <Svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={colors.label} strokeWidth="1.8" strokeLinecap="round"><Circle cx="12" cy="12" r="10" /><Polyline points="12 6 12 12 16 14" /></Svg>
             </Pressable>
             <Pressable onPress={() => store.newChat()} style={$.headerBtn}>
-              <Svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="1.8" strokeLinecap="round"><Line x1="12" y1="5" x2="12" y2="19" /><Line x1="5" y1="12" x2="19" y2="12" /></Svg>
+              <Svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={colors.label} strokeWidth="1.8" strokeLinecap="round"><Line x1="12" y1="5" x2="12" y2="19" /><Line x1="5" y1="12" x2="19" y2="12" /></Svg>
             </Pressable>
           </View>
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={$.modeBar}>
-          {MODES.map((m) => (
-            <Pressable key={m} style={[$.modeChip, store.mode === m && $.modeChipActive]} onPress={() => store.setMode(m)}>
-              <Text style={[$.modeChipText, store.mode === m && $.modeChipTextActive]}>{m}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
       </View>
 
       {/* ── Body ───────────────────────────────────────── */}
@@ -128,8 +199,8 @@ function ChatView({ insets, store, user, onOpenHistory, onBack }: any) {
         </View>
       ) : store.isLoading ? (
         <View style={$.centerWrap}>
-          <ActivityIndicator size="small" color="#000" />
-          <Text style={$.loadingText}>Loading conversation...</Text>
+          <ActivityIndicator size="small" color={colors.label} />
+          <Text style={[$.loadingText, { color: colors.secondaryLabel }]}>Loading conversation...</Text>
         </View>
       ) : (
         <FlatList
@@ -142,9 +213,9 @@ function ChatView({ insets, store, user, onOpenHistory, onBack }: any) {
           onContentSizeChange={() => flatRef.current?.scrollToEnd({ animated: true })}
           ListHeaderComponent={
             contextLine ? (
-              <View style={$.contextBanner}>
-                <View style={$.contextDot} />
-                <Text style={$.contextText}>Using your profile: <Text style={$.contextBold}>{contextLine}</Text></Text>
+              <View style={[$.contextBanner, { backgroundColor: colors.tertiarySystemFill }]}>
+                <View style={[$.contextDot, { backgroundColor: colors.systemGreen }]} />
+                <Text style={[$.contextText, { color: colors.secondaryLabel }]}>Using your profile: <Text style={[$.contextBold, { color: colors.label }]}>{contextLine}</Text></Text>
               </View>
             ) : null
           }
@@ -178,40 +249,121 @@ function ChatView({ insets, store, user, onOpenHistory, onBack }: any) {
         </Animated.View>
       ) : null}
 
+      {/* ── Mode dropdown overlay ─────────────────────── */}
+      {modeOpen && (
+        <Pressable style={$.modeOverlay} onPress={() => setModeOpen(false)} />
+      )}
+
       {/* ── Input bar ──────────────────────────────────── */}
-      <View style={[$.inputBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        <View style={$.inputRow}>
-          <View style={[$.inputField, store.isStreaming && { opacity: 0.4 }]}>
-            <TextInput
-              style={$.inputText}
-              placeholder={store.isStreaming ? 'JAY is responding...' : 'Ask JAY anything...'}
-              placeholderTextColor="#CCC"
-              value={input}
-              onChangeText={setInput}
-              onSubmitEditing={() => send()}
-              onKeyPress={(e) => {
-                if (Platform.OS === 'web' && e.nativeEvent.key === 'Enter' && !(e.nativeEvent as any).shiftKey) {
-                  e.preventDefault(); send();
-                }
-              }}
-              returnKeyType="send"
-              blurOnSubmit={false}
-              multiline maxLength={2000}
-              editable={!store.isStreaming}
-            />
+      <View style={[$.inputBar, { paddingBottom: Math.max(insets.bottom, 12), borderTopColor: colors.separator, backgroundColor: colors.systemBackground }]}>
+        {/* Mode dropdown (floats above input) */}
+        {modeOpen && (
+          <Animated.View entering={FadeIn.duration(150)} style={[$.modePickerExpanded, { backgroundColor: colors.secondarySystemBackground, borderColor: colors.separator }]}>
+            {MODES.map((m) => (
+              <Pressable
+                key={m}
+                style={[$.modeOption, store.mode === m && { backgroundColor: colors.systemBlue + '15' }]}
+                onPress={() => { store.setMode(m); setModeOpen(false); }}
+              >
+                <View style={[$.modeOptionDot, { backgroundColor: store.mode === m ? colors.systemBlue : colors.systemGray3 }]} />
+                <Text style={[$.modeOptionText, { color: store.mode === m ? colors.systemBlue : colors.label }]}>{m}</Text>
+                {store.mode === m && (
+                  <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={colors.systemBlue} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <Polyline points="20 6 9 17 4 12" />
+                  </Svg>
+                )}
+              </Pressable>
+            ))}
+          </Animated.View>
+        )}
+
+        {/* Recording / transcribing banner */}
+        {(isRecording || isTranscribing) && (
+          <View style={[$.voiceBanner, { backgroundColor: isRecording ? colors.systemRed + '12' : colors.systemBlue + '12' }]}>
+            <View style={$.voiceBannerTop}>
+              <View style={[$.recordingDot, { backgroundColor: isRecording ? colors.systemRed : colors.systemBlue }]} />
+              <Text style={[$.recordingText, { color: isRecording ? colors.systemRed : colors.systemBlue }]}>
+                {isRecording
+                  ? `Recording  ${Math.floor(recordSec / 60)}:${String(recordSec % 60).padStart(2, '0')}`
+                  : 'Transcribing...'}
+              </Text>
+              {isTranscribing && <ActivityIndicator size="small" color={colors.systemBlue} style={{ marginLeft: 4 }} />}
+            </View>
+            {isRecording && (
+              <Text style={[$.liveTextHint, { color: colors.tertiaryLabel }]}>Tap the stop button when done</Text>
+            )}
           </View>
-          <Pressable
-            style={[$.sendBtn, (!input.trim() || store.isStreaming) && $.sendBtnOff]}
-            onPress={() => send()}
-            disabled={!input.trim() || store.isStreaming}
-          >
-            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round">
-              <Path d="M22 2L11 13" /><Path d="M22 2l-7 20-4-9-9-4z" />
-            </Svg>
-          </Pressable>
+        )}
+
+        {/* Input box */}
+        <View style={[$.inputBox, { backgroundColor: colors.tertiarySystemFill, borderColor: colors.separator }]}>
+          {/* Text area */}
+          <TextInput
+            style={[$.inputText, { color: colors.label }]}
+            placeholder={isRecording ? 'Listening...' : isTranscribing ? 'Processing...' : store.isStreaming ? 'JAY is responding...' : 'Ask JAY anything...'}
+            placeholderTextColor={colors.placeholderText}
+            value={input}
+            onChangeText={setInput}
+            onSubmitEditing={() => send()}
+            onKeyPress={(e) => {
+              if (Platform.OS === 'web' && e.nativeEvent.key === 'Enter' && !(e.nativeEvent as any).shiftKey) {
+                e.preventDefault(); send();
+              }
+            }}
+            returnKeyType="send"
+            blurOnSubmit={false}
+            multiline maxLength={2000}
+            editable={!store.isStreaming && !isRecording && !isTranscribing}
+          />
+
+          {/* Bottom toolbar: [mode pill] ——spacer—— [mic] [send] */}
+          <View style={$.inputToolbar}>
+            <Pressable style={[$.modePill, { backgroundColor: colors.quaternarySystemFill }]} onPress={() => setModeOpen(!modeOpen)}>
+              <View style={[$.modePickerDot, { backgroundColor: colors.systemBlue }]} />
+              <Text style={[$.modePillText, { color: colors.secondaryLabel }]}>{store.mode}</Text>
+              <Svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke={colors.tertiaryLabel} strokeWidth="3" strokeLinecap="round">
+                <Path d={modeOpen ? 'M18 15l-6-6-6 6' : 'M6 9l6 6 6-6'} />
+              </Svg>
+            </Pressable>
+
+            <View style={{ flex: 1 }} />
+
+            <Animated.View style={micPulseStyle}>
+              <Pressable
+                style={[$.micBtn, { backgroundColor: isRecording ? colors.systemRed : 'transparent' }]}
+                onPress={toggleRecording}
+                disabled={store.isStreaming || isTranscribing}
+                hitSlop={6}
+              >
+                {isRecording ? (
+                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="#fff" stroke="#fff" strokeWidth="1.5">
+                    <Rect x="6" y="6" width="12" height="12" rx="2" />
+                  </Svg>
+                ) : (
+                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.secondaryLabel} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <Path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                    <Path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                    <Line x1="12" y1="19" x2="12" y2="23" />
+                    <Line x1="8" y1="23" x2="16" y2="23" />
+                  </Svg>
+                )}
+              </Pressable>
+            </Animated.View>
+
+            <Pressable
+              style={[$.sendBtn, { backgroundColor: colors.systemBlue }, (!input.trim() || store.isStreaming || isRecording) && { backgroundColor: colors.quaternarySystemFill }]}
+              onPress={() => send()}
+              disabled={!input.trim() || store.isStreaming || isRecording}
+              hitSlop={6}
+            >
+              <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round">
+                <Path d="M22 2L11 13" /><Path d="M22 2l-7 20-4-9-9-4z" />
+              </Svg>
+            </Pressable>
+          </View>
         </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -223,6 +375,7 @@ function HistoryView({ insets, conversations, onSelect, onNew, onBack, onDelete 
   onSelect: (id: string) => void; onNew: () => void; onBack: () => void;
   onDelete: (id: string) => void;
 }) {
+  const { colors } = useTheme();
   // Group conversations by date
   const groups: { label: string; items: ConversationSummary[] }[] = [];
   const today = new Date(); const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
@@ -243,13 +396,13 @@ function HistoryView({ insets, conversations, onSelect, onNew, onBack, onDelete 
   if (olderItems.length) groups.push({ label: 'Earlier', items: olderItems });
 
   return (
-    <View style={[$.screen, { paddingTop: insets.top }]}>
-      <View style={$.historyHeader}>
+    <View style={[$.screen, { paddingTop: insets.top, backgroundColor: colors.groupedBackground }]}>
+      <View style={[$.historyHeader, { borderBottomColor: colors.separator }]}>
         <Pressable onPress={onBack} style={$.headerBackBtn}>
-          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="1.8" strokeLinecap="round"><Path d="M15 18l-6-6 6-6" /></Svg>
+          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.systemBlue} strokeWidth="1.8" strokeLinecap="round"><Path d="M15 18l-6-6 6-6" /></Svg>
         </Pressable>
-        <Text style={$.historyTitle}>Conversations</Text>
-        <Pressable onPress={onNew} style={$.newChatCircle}>
+        <Text style={[$.historyTitle, { color: colors.label }]}>Conversations</Text>
+        <Pressable onPress={onNew} style={[$.newChatCircle, { backgroundColor: colors.systemBlue }]}>
           <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round">
             <Line x1="12" y1="5" x2="12" y2="19" /><Line x1="5" y1="12" x2="19" y2="12" />
           </Svg>
@@ -259,23 +412,23 @@ function HistoryView({ insets, conversations, onSelect, onNew, onBack, onDelete 
       {conversations.length === 0 ? (
         <View style={$.centerWrap}>
           <Text style={{ fontSize: 36 }}>💬</Text>
-          <Text style={$.emptyHistTitle}>No conversations yet</Text>
-          <Text style={$.loadingText}>Start a new chat with JAY</Text>
+          <Text style={[$.emptyHistTitle, { color: colors.label }]}>No conversations yet</Text>
+          <Text style={[$.loadingText, { color: colors.secondaryLabel }]}>Start a new chat with JAY</Text>
         </View>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 20) }}>
           {groups.map((g) => (
             <View key={g.label}>
-              <Text style={$.groupLabel}>{g.label.toUpperCase()}</Text>
+              <Text style={[$.groupLabel, { color: colors.tertiaryLabel }]}>{g.label.toUpperCase()}</Text>
               {g.items.map((c) => (
-                <Pressable key={c.id} style={$.chatRow} onPress={() => onSelect(c.id)}>
+                <Pressable key={c.id} style={[$.chatRow, { borderBottomColor: colors.separator }]} onPress={() => onSelect(c.id)}>
                   <View style={$.chatRowAvatar}><Text style={$.chatRowJ}>J</Text></View>
                   <View style={$.chatRowContent}>
-                    <Text style={$.chatRowTitle} numberOfLines={1}>{c.title || 'New conversation'}</Text>
-                    <Text style={$.chatRowPreview} numberOfLines={1}>{c.last_message_preview || 'No messages yet'}</Text>
+                    <Text style={[$.chatRowTitle, { color: colors.label }]} numberOfLines={1}>{c.title || 'New conversation'}</Text>
+                    <Text style={[$.chatRowPreview, { color: colors.secondaryLabel }]} numberOfLines={1}>{c.last_message_preview || 'No messages yet'}</Text>
                   </View>
                   <View style={$.chatRowMeta}>
-                    <Text style={$.chatRowTime}>
+                    <Text style={[$.chatRowTime, { color: colors.tertiaryLabel }]}>
                       {new Date(c.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </Text>
                     {c.message_count > 0 ? (
@@ -296,6 +449,7 @@ function HistoryView({ insets, conversations, onSelect, onNew, onBack, onDelete 
 // EMPTY STATE
 // ══════════════════════════════════════════════════════════════════════════════
 function EmptyState({ user, onSend }: { user: any; onSend: (t: string) => void }) {
+  const { colors } = useTheme();
   const name = user.name ? user.name.split(' ')[0] : '';
   const ctx = [user.skinType?.toLowerCase(), ...user.primaryConcerns.slice(0, 2).map((c: string) => c.replace('_', ' '))].filter(Boolean).join(', ');
 
@@ -310,19 +464,19 @@ function EmptyState({ user, onSend }: { user: any; onSend: (t: string) => void }
     <ScrollView style={{ flex: 1 }} contentContainerStyle={$.emptyWrap} showsVerticalScrollIndicator={false}>
       <View style={$.emptyCenter}>
         <View style={$.emptyLogo}><Text style={$.emptyLogoJ}>J</Text></View>
-        <Text style={$.emptyTitle}>{name ? `Hey ${name}!` : 'Hey there!'}</Text>
-        <Text style={$.emptyDesc}>
+        <Text style={[$.emptyTitle, { color: colors.label }]}>{name ? `Hey ${name}!` : 'Hey there!'}</Text>
+        <Text style={[$.emptyDesc, { color: colors.secondaryLabel }]}>
           {ctx ? `I know your skin — ${ctx}. Ask me anything or pick a topic.` : "I'm your personal skincare expert. Ask me anything."}
         </Text>
       </View>
       <View style={$.emptyPrompts}>
         {cards.map((card, i) => (
           <Animated.View key={card.title} entering={FadeInUp.duration(250).delay(i * 70)}>
-            <Pressable style={$.emptyCard} onPress={() => onSend(card.sub)}>
-              <View style={$.emptyCardIcon}><CardIcon type={card.icon} /></View>
+            <Pressable style={[$.emptyCard, { backgroundColor: colors.secondarySystemBackground }]} onPress={() => onSend(card.sub)}>
+              <View style={[$.emptyCardIcon, { backgroundColor: colors.tertiarySystemFill }]}><CardIcon type={card.icon} /></View>
               <View style={$.emptyCardText}>
-                <Text style={$.emptyCardTitle}>{card.title}</Text>
-                <Text style={$.emptyCardSub}>"{card.sub}"</Text>
+                <Text style={[$.emptyCardTitle, { color: colors.label }]}>{card.title}</Text>
+                <Text style={[$.emptyCardSub, { color: colors.secondaryLabel }]}>"{card.sub}"</Text>
               </View>
             </Pressable>
           </Animated.View>
@@ -334,7 +488,8 @@ function EmptyState({ user, onSend }: { user: any; onSend: (t: string) => void }
 }
 
 function CardIcon({ type }: { type: string }) {
-  const c = "#666"; const w = 18;
+  const { colors: tc } = useTheme();
+  const c = tc.secondaryLabel; const w = 18;
   if (type === 'ingredient') return <Svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.5" strokeLinecap="round"><Path d="M10 2v7.5a2 2 0 01-.2.9L4.7 20.6a1 1 0 00.9 1.4h12.8a1 1 0 00.9-1.4l-5.1-10.2a2 2 0 01-.2-.9V2" /><Path d="M8.5 2h7" /></Svg>;
   if (type === 'routine') return <Svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.5" strokeLinecap="round"><Circle cx="12" cy="12" r="10" /><Polyline points="12 6 12 12 16 14" /></Svg>;
   if (type === 'dupe') return <Svg width={w} height={w} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.5" strokeLinecap="round"><Path d="M16 3l5 5-5 5" /><Path d="M21 8H9" /><Path d="M8 21l-5-5 5-5" /><Path d="M3 16h12" /></Svg>;
@@ -348,29 +503,31 @@ function JayBubble({ msg, isLast, onCopy, copied, onRetry, followUps, onFollowUp
   msg: ChatMessage; isLast: boolean; onCopy: () => void; copied: boolean;
   onRetry?: () => void; followUps?: string[]; onFollowUp: (t: string) => void;
 }) {
+  const { colors: c } = useTheme();
   return (
     <Animated.View entering={FadeInUp.duration(200)} style={$.msgJay}>
       <View style={$.jayAvatar}><Text style={$.jayAvatarJ}>J</Text></View>
       <View style={$.msgJayContent}>
-        <View style={$.bubbleJay}>
-          <Text style={$.bubbleJayText}>{msg.text}{msg.isStreaming ? <BlinkCursor /> : null}</Text>
+        <View style={[$.bubbleJay, { backgroundColor: c.secondarySystemBackground }]}>
+          <RichText text={msg.text} color={c.label} accentColor={c.systemIndigo} />
+          {msg.isStreaming ? <Text style={[$.bubbleJayText, { color: c.label }]}><BlinkCursor /></Text> : null}
         </View>
         {isLast && !msg.isStreaming ? (
           <View style={$.msgActions}>
             <Pressable style={$.msgAction} onPress={onCopy} hitSlop={6}>
-              <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="1.5" strokeLinecap="round"><Rect x="9" y="9" width="13" height="13" rx="2" /><Path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></Svg>
+              <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={c.secondaryLabel} strokeWidth="1.5" strokeLinecap="round"><Rect x="9" y="9" width="13" height="13" rx="2" /><Path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></Svg>
             </Pressable>
             {onRetry ? <Pressable style={$.msgAction} onPress={onRetry} hitSlop={6}>
-              <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="1.5" strokeLinecap="round"><Path d="M1 4v6h6M23 20v-6h-6" /><Path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15" /></Svg>
+              <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={c.secondaryLabel} strokeWidth="1.5" strokeLinecap="round"><Path d="M1 4v6h6M23 20v-6h-6" /><Path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15" /></Svg>
             </Pressable> : null}
-            <Text style={$.msgActionLabel}>{copied ? 'Copied!' : ''}</Text>
+            <Text style={[$.msgActionLabel, { color: c.tertiaryLabel }]}>{copied ? 'Copied!' : ''}</Text>
           </View>
         ) : null}
-        <Text style={$.msgTime}>{msg.timestamp}</Text>
+        <Text style={[$.msgTime, { color: c.tertiaryLabel }]}>{msg.timestamp}</Text>
         {followUps ? (
           <View style={$.suggestions}>{followUps.map((f) => (
-            <Pressable key={f} style={$.suggestionChip} onPress={() => onFollowUp(f)}>
-              <Text style={$.suggestionText}>{f}</Text>
+            <Pressable key={f} style={[$.suggestionChip, { backgroundColor: c.quaternarySystemFill }]} onPress={() => onFollowUp(f)}>
+              <Text style={[$.suggestionText, { color: c.systemBlue }]}>{f}</Text>
             </Pressable>
           ))}</View>
         ) : null}
@@ -380,19 +537,21 @@ function JayBubble({ msg, isLast, onCopy, copied, onRetry, followUps, onFollowUp
 }
 
 function UserBubble({ text, time }: { text: string; time: string }) {
+  const { colors: c } = useTheme();
   return (
     <Animated.View entering={FadeInUp.duration(200)} style={$.msgUser}>
-      <View style={$.bubbleUser}><Text style={$.bubbleUserText}>{text}</Text></View>
-      <Text style={[$.msgTime, $.msgTimeRight]}>{time}</Text>
+      <View style={[$.bubbleUser, { backgroundColor: c.systemBlue }]}><Text style={$.bubbleUserText}>{text}</Text></View>
+      <Text style={[$.msgTime, $.msgTimeRight, { color: c.tertiaryLabel }]}>{time}</Text>
     </Animated.View>
   );
 }
 
 function ThinkingIndicator() {
+  const { colors: c } = useTheme();
   return (
     <Animated.View entering={FadeIn.duration(200)} style={$.msgJay}>
       <View style={$.jayAvatar}><Text style={$.jayAvatarJ}>J</Text></View>
-      <View style={$.thinkingBubble}><ThinkingDots /></View>
+      <View style={[$.thinkingBubble, { backgroundColor: c.secondarySystemBackground }]}><ThinkingDots /></View>
     </Animated.View>
   );
 }
@@ -410,115 +569,118 @@ function ThinkingDots() {
 }
 
 function BlinkCursor() {
+  const { colors } = useTheme();
   const op = useSharedValue(1);
   useEffect(() => { op.value = withRepeat(withSequence(withTiming(0, { duration: 500, easing: Easing.steps(2) }), withTiming(1, { duration: 500, easing: Easing.steps(2) })), -1, false); }, []);
   const st = useAnimatedStyle(() => ({ opacity: op.value }));
-  return <Animated.Text style={[{ color: '#000', fontWeight: '700' }, st]}>{' |'}</Animated.Text>;
+  return <Animated.Text style={[{ color: colors.secondaryLabel, fontWeight: '700' }, st]}>{' |'}</Animated.Text>;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
 // STYLES
 // ══════════════════════════════════════════════════════════════════════════════
+// Colors are applied inline via `colors` from useTheme(). StyleSheet has only structural values.
 const $ = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#fff' },
+  screen: { flex: 1 },
 
-  // Header
-  header: { borderBottomWidth: HW, borderBottomColor: '#E5E5E5' },
-  headerMain: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10 },
+  header: { borderBottomWidth: HW },
+  headerMain: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 10 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   headerBackBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  jayHeaderAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
+  jayHeaderAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   jayHeaderJ: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  headerTitle: { fontSize: 15, fontWeight: '600', letterSpacing: -0.2, fontFamily: 'Outfit-SemiBold' },
-  headerSub: { fontSize: 11, color: '#999', fontFamily: 'Outfit', marginTop: 1 },
+  headerTitle: { fontSize: 17, fontWeight: '600', letterSpacing: -0.41, fontFamily: 'Outfit-SemiBold' },
+  headerSub: { fontSize: 13, fontFamily: 'Outfit', marginTop: 1 },
   headerRight: { flexDirection: 'row', gap: 4 },
   headerBtn: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
 
-  // Mode chips
-  modeBar: { paddingHorizontal: 16, paddingBottom: 12, gap: 6 },
-  modeChip: { paddingVertical: 5, paddingHorizontal: 14, borderRadius: 100, borderWidth: HW, borderColor: '#E5E5E5' },
-  modeChipActive: { backgroundColor: '#000', borderColor: '#000' },
-  modeChipText: { fontSize: 11, fontWeight: '500', color: '#999', fontFamily: 'Outfit-Medium' },
-  modeChipTextActive: { color: '#fff' },
+  modeOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 10 },
+  modePickerDot: { width: 6, height: 6, borderRadius: 3 },
+  modePickerExpanded: { marginBottom: 6, borderRadius: 12, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, zIndex: 20 },
+  modeOption: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 8 },
+  modeOptionDot: { width: 6, height: 6, borderRadius: 3 },
+  modeOptionText: { fontSize: 14, fontFamily: 'Outfit-Medium', fontWeight: '500', flex: 1 },
 
-  // Context banner
-  contextBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 8, paddingHorizontal: 14, backgroundColor: '#F8F8F8', borderRadius: 10, marginHorizontal: 4, marginBottom: 12 },
-  contextDot: { width: 5, height: 5, backgroundColor: '#000', borderRadius: 3 },
-  contextText: { fontSize: 11, color: '#999', fontFamily: 'Outfit', lineHeight: 16 },
-  contextBold: { color: '#000', fontWeight: '500', fontFamily: 'Outfit-Medium' },
+  contextBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, paddingHorizontal: 14, borderRadius: 10, marginHorizontal: 4, marginBottom: 12 },
+  contextDot: { width: 5, height: 5, borderRadius: 3 },
+  contextText: { fontSize: 13, fontFamily: 'Outfit', lineHeight: 18 },
+  contextBold: { fontWeight: '500', fontFamily: 'Outfit-Medium' },
 
-  // Center
   centerWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
-  loadingText: { fontSize: 13, color: '#999', fontFamily: 'Outfit' },
+  loadingText: { fontSize: 15, fontFamily: 'Outfit' },
 
-  // Messages
   msgList: { paddingHorizontal: 16, paddingTop: 16 },
   msgJay: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', marginBottom: 20 },
-  jayAvatar: { width: 26, height: 26, backgroundColor: '#000', borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  jayAvatar: { width: 26, height: 26, backgroundColor: '#5856D6', borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
   jayAvatarJ: { color: '#fff', fontSize: 11, fontWeight: '800' },
   msgJayContent: { flex: 1, maxWidth: 280, gap: 6 },
-  bubbleJay: { backgroundColor: '#F5F5F5', borderTopLeftRadius: 2, borderTopRightRadius: 16, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, paddingHorizontal: 14, paddingVertical: 12 },
-  bubbleJayText: { fontSize: 13.5, lineHeight: 22, color: '#222', fontFamily: 'Outfit' },
+  bubbleJay: { borderTopLeftRadius: 4, borderTopRightRadius: 18, borderBottomLeftRadius: 18, borderBottomRightRadius: 18, paddingHorizontal: 14, paddingVertical: 12 },
+  bubbleJayText: { fontSize: 15, lineHeight: 22, fontFamily: 'Outfit' },
 
   msgUser: { alignItems: 'flex-end', marginBottom: 20 },
-  bubbleUser: { backgroundColor: '#000', borderTopLeftRadius: 16, borderTopRightRadius: 2, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, paddingHorizontal: 14, paddingVertical: 12, maxWidth: 265 },
-  bubbleUserText: { fontSize: 13.5, lineHeight: 22, color: '#fff', fontFamily: 'Outfit' },
+  bubbleUser: { borderTopLeftRadius: 18, borderTopRightRadius: 4, borderBottomLeftRadius: 18, borderBottomRightRadius: 18, paddingHorizontal: 14, paddingVertical: 12, maxWidth: 265 },
+  bubbleUserText: { fontSize: 15, lineHeight: 22, color: '#fff', fontFamily: 'Outfit' },
 
-  msgTime: { fontSize: 10, color: '#CCC', fontFamily: 'Outfit', marginTop: 2 },
+  msgTime: { fontSize: 11, fontFamily: 'Outfit', marginTop: 2 },
   msgTimeRight: { textAlign: 'right' as const },
 
   msgActions: { flexDirection: 'row', gap: 2, alignItems: 'center', marginTop: 4 },
-  msgAction: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center', opacity: 0.25 },
-  msgActionLabel: { fontSize: 10, color: '#CCC', marginLeft: 4, fontFamily: 'Outfit' },
+  msgAction: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center', opacity: 0.3 },
+  msgActionLabel: { fontSize: 11, marginLeft: 4, fontFamily: 'Outfit' },
 
   suggestions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
-  suggestionChip: { paddingVertical: 7, paddingHorizontal: 14, borderWidth: HW, borderColor: '#E5E5E5', borderRadius: 100 },
-  suggestionText: { fontSize: 12, color: '#666', fontFamily: 'Outfit' },
+  suggestionChip: { paddingVertical: 7, paddingHorizontal: 14, borderRadius: 100 },
+  suggestionText: { fontSize: 13, fontFamily: 'Outfit' },
 
-  thinkingBubble: { backgroundColor: '#F5F5F5', borderTopLeftRadius: 2, borderTopRightRadius: 16, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, padding: 14 },
-  thinkDot: { width: 6, height: 6, backgroundColor: '#CCC', borderRadius: 3 },
+  thinkingBubble: { borderTopLeftRadius: 4, borderTopRightRadius: 18, borderBottomLeftRadius: 18, borderBottomRightRadius: 18, padding: 14 },
+  thinkDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#8E8E93' },
 
   streamingBar: { alignItems: 'center', paddingVertical: 6 },
   stopBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 18, backgroundColor: 'rgba(0,0,0,0.85)', borderRadius: 100 },
   stopIcon: { width: 10, height: 10, borderWidth: 1.5, borderColor: '#fff', borderRadius: 2 },
-  stopText: { fontSize: 12, fontWeight: '500', color: '#fff', fontFamily: 'Outfit-Medium' },
+  stopText: { fontSize: 13, fontWeight: '500', color: '#fff', fontFamily: 'Outfit-Medium' },
 
-  // Input bar
-  inputBar: { borderTopWidth: HW, borderTopColor: '#E5E5E5', backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 10 },
-  inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-  inputField: { flex: 1, minHeight: 36, maxHeight: 120, backgroundColor: '#F5F5F5', borderRadius: 20, justifyContent: 'center' },
-  inputText: { paddingHorizontal: 16, paddingVertical: Platform.OS === 'ios' ? 9 : 7, fontSize: 14, fontFamily: 'Outfit', color: '#000', maxHeight: 120 },
-  sendBtn: { width: 34, height: 34, backgroundColor: '#000', borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  sendBtnOff: { backgroundColor: '#E5E5E5' },
+  inputBar: { paddingHorizontal: 12, paddingTop: 8, zIndex: 20 },
+  inputBox: { borderRadius: 22, borderWidth: HW, paddingTop: 4, paddingHorizontal: 14, paddingBottom: 6 },
+  inputText: { fontSize: 15, fontFamily: 'Outfit', maxHeight: 100, minHeight: 32, paddingVertical: Platform.OS === 'ios' ? 6 : 4 },
+  inputToolbar: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  modePill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 100 },
+  modePillText: { fontSize: 12, fontWeight: '500', fontFamily: 'Outfit-Medium' },
+  micBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  sendBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  voiceBanner: { paddingHorizontal: 14, paddingVertical: 10, marginBottom: 6, borderRadius: 12, marginHorizontal: 4 },
+  voiceBannerTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  recordingDot: { width: 8, height: 8, borderRadius: 4 },
+  recordingText: { fontSize: 13, fontFamily: 'Outfit-SemiBold', fontWeight: '600' },
+  liveText: { fontSize: 15, fontFamily: 'Outfit', lineHeight: 21, marginTop: 6 },
+  liveTextHint: { fontSize: 14, fontFamily: 'Outfit', fontStyle: 'italic', marginTop: 4 },
 
-  // Empty state
-  emptyWrap: { paddingTop: 40, paddingHorizontal: 24 },
+  emptyWrap: { paddingTop: 40, paddingHorizontal: 20 },
   emptyCenter: { alignItems: 'center', marginBottom: 32 },
-  emptyLogo: { width: 64, height: 64, backgroundColor: '#000', borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
+  emptyLogo: { width: 64, height: 64, backgroundColor: '#5856D6', borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
   emptyLogoJ: { color: '#fff', fontSize: 24, fontWeight: '800' },
-  emptyTitle: { fontSize: 20, fontWeight: '600', fontFamily: 'Outfit-SemiBold', letterSpacing: -0.3, marginBottom: 8 },
-  emptyDesc: { fontSize: 13, color: '#999', fontFamily: 'Outfit', lineHeight: 20, textAlign: 'center' },
+  emptyTitle: { fontSize: 22, fontWeight: '700', fontFamily: 'Outfit-Bold', letterSpacing: -0.3, marginBottom: 8 },
+  emptyDesc: { fontSize: 15, fontFamily: 'Outfit', lineHeight: 22, textAlign: 'center' },
   emptyPrompts: { gap: 8 },
-  emptyCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: HW, borderColor: '#E5E5E5', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16 },
-  emptyCardIcon: { width: 36, height: 36, backgroundColor: '#F5F5F5', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  emptyCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16 },
+  emptyCardIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   emptyCardText: { flex: 1 },
-  emptyCardTitle: { fontSize: 13, fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
-  emptyCardSub: { fontSize: 11, color: '#999', fontFamily: 'Outfit', marginTop: 2 },
+  emptyCardTitle: { fontSize: 15, fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
+  emptyCardSub: { fontSize: 13, fontFamily: 'Outfit', marginTop: 2 },
   emptyHistTitle: { fontSize: 17, fontWeight: '600', fontFamily: 'Outfit-SemiBold', marginTop: 12 },
 
-  // History
-  historyHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: HW, borderBottomColor: '#E5E5E5' },
-  historyTitle: { fontSize: 22, fontWeight: '600', fontFamily: 'Outfit-SemiBold', letterSpacing: -0.3, flex: 1, marginLeft: 10 },
-  newChatCircle: { width: 36, height: 36, backgroundColor: '#000', borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  groupLabel: { fontSize: 10, fontWeight: '600', color: '#999', letterSpacing: 2, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 6, fontFamily: 'Outfit-SemiBold' },
-  chatRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 20, borderBottomWidth: HW, borderBottomColor: '#F5F5F5' },
-  chatRowAvatar: { width: 40, height: 40, backgroundColor: '#000', borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  historyHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: HW },
+  historyTitle: { fontSize: 22, fontWeight: '700', fontFamily: 'Outfit-Bold', letterSpacing: -0.3, flex: 1, marginLeft: 10 },
+  newChatCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  groupLabel: { fontSize: 13, fontWeight: '400', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 6, fontFamily: 'Outfit' },
+  chatRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 20, borderBottomWidth: HW },
+  chatRowAvatar: { width: 40, height: 40, backgroundColor: '#5856D6', borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   chatRowJ: { color: '#fff', fontSize: 16, fontWeight: '800' },
   chatRowContent: { flex: 1, minWidth: 0 },
-  chatRowTitle: { fontSize: 14, fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
-  chatRowPreview: { fontSize: 12, color: '#999', fontFamily: 'Outfit', marginTop: 2 },
+  chatRowTitle: { fontSize: 15, fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
+  chatRowPreview: { fontSize: 13, fontFamily: 'Outfit', marginTop: 2 },
   chatRowMeta: { alignItems: 'flex-end', gap: 4 },
-  chatRowTime: { fontSize: 11, color: '#CCC', fontFamily: 'Outfit' },
-  chatRowBadge: { width: 18, height: 18, backgroundColor: '#000', borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  chatRowTime: { fontSize: 13, fontFamily: 'Outfit' },
+  chatRowBadge: { width: 18, height: 18, backgroundColor: '#5856D6', borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   chatRowBadgeText: { color: '#fff', fontSize: 9, fontWeight: '600' },
 });

@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TopBar } from '../../components/ui/TopBar';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { useUserStore } from '../../stores/userStore';
+import { useTheme } from '../../lib/theme';
 
 const BADGES = [
   { id: '1', emoji: '🌱', name: 'First Step', desc: 'Completed first diary entry', earned: true },
@@ -17,9 +18,10 @@ const BADGES = [
 export default function AchievementsScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useUserStore();
+  const { colors } = useTheme();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.groupedBackground }]}>
       <TopBar title="Achievements" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {/* Glow Points */}
@@ -59,18 +61,18 @@ export default function AchievementsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1 },
   content: { paddingHorizontal: 24, paddingBottom: 40 },
   glowCard: { borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 14, padding: 16, marginBottom: 14 },
-  glowLabel: { fontSize: 10, color: '#999', fontWeight: '600', letterSpacing: 2.5, textTransform: 'uppercase', fontFamily: 'Outfit-SemiBold' },
+  glowLabel: { fontSize: 10, color: '#8E8E93', fontWeight: '600', letterSpacing: 2.5, textTransform: 'uppercase', fontFamily: 'Outfit-SemiBold' },
   glowNum: { fontSize: 36, fontWeight: '700', letterSpacing: -1, marginTop: 4, fontFamily: 'Outfit-Bold' },
-  glowSub: { fontSize: 13, color: '#666', marginBottom: 12, fontFamily: 'Outfit' },
+  glowSub: { fontSize: 13, color: '#8E8E93', marginBottom: 12, fontFamily: 'Outfit' },
   progressWrapper: { marginBottom: 6 },
-  progressNote: { fontSize: 12, color: '#999', fontFamily: 'Outfit' },
+  progressNote: { fontSize: 12, color: '#8E8E93', fontFamily: 'Outfit' },
   streakCard: { flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 14, padding: 16, marginBottom: 28 },
   streakEmoji: { fontSize: 32 },
   streakNum: { fontSize: 22, fontWeight: '700', fontFamily: 'Outfit-Bold' },
-  streakLabel: { fontSize: 12, color: '#999', fontFamily: 'Outfit' },
+  streakLabel: { fontSize: 12, color: '#8E8E93', fontFamily: 'Outfit' },
   sectionTitle: { fontSize: 18, fontWeight: '600', letterSpacing: -0.2, marginBottom: 14, fontFamily: 'Outfit-SemiBold' },
   badgesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   badge: { width: '47%', borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 14, padding: 14, alignItems: 'center', gap: 6 },
@@ -78,5 +80,5 @@ const styles = StyleSheet.create({
   badgeEmoji: { fontSize: 28 },
   badgeEmojiUnearned: { opacity: 0.5 },
   badgeName: { fontSize: 13, fontWeight: '600', textAlign: 'center', fontFamily: 'Outfit-SemiBold' },
-  badgeDesc: { fontSize: 11, color: '#999', textAlign: 'center', lineHeight: 15, fontFamily: 'Outfit' },
+  badgeDesc: { fontSize: 11, color: '#8E8E93', textAlign: 'center', lineHeight: 15, fontFamily: 'Outfit' },
 });

@@ -1,48 +1,46 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useTheme } from '../../lib/theme';
 import type { CommunityPost } from '../../types';
 
-interface PostCardProps { post: CommunityPost; }
-
-export function PostCard({ post }: PostCardProps) {
+export function PostCard({ post }: { post: CommunityPost }) {
+  const { colors } = useTheme();
   return (
-    <View style={styles.card}>
-      <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{post.avatar}</Text>
+    <View style={[s.card, { borderBottomColor: colors.separator }]}>
+      <View style={s.header}>
+        <View style={[s.avatar, { backgroundColor: colors.tertiarySystemFill }]}>
+          <Text style={[s.avatarText, { color: colors.label }]}>{post.avatar}</Text>
         </View>
         <View>
-          <Text style={styles.author}>{post.author}</Text>
-          <Text style={styles.time}>{post.timeAgo}</Text>
+          <Text style={[s.author, { color: colors.label }]}>{post.author}</Text>
+          <Text style={[s.time, { color: colors.tertiaryLabel }]}>{post.timeAgo}</Text>
         </View>
       </View>
-      <Text style={styles.body}>{post.text}</Text>
-      <View style={styles.tags}>
+      <Text style={[s.body, { color: colors.label }]}>{post.text}</Text>
+      <View style={s.tags}>
         {post.tags.map((tag) => (
-          <View key={tag} style={styles.tag}>
-            <Text style={styles.tagText}>{tag}</Text>
-          </View>
+          <View key={tag} style={[s.tag, { backgroundColor: colors.quaternarySystemFill }]}><Text style={[s.tagText, { color: colors.secondaryLabel }]}>{tag}</Text></View>
         ))}
       </View>
-      <View style={styles.engagement}>
-        <Text style={styles.engageText}>♡ {post.likes}</Text>
-        <Text style={styles.engageText}>💬 {post.comments}</Text>
+      <View style={s.engagement}>
+        <Text style={[s.engageText, { color: colors.secondaryLabel }]}>♡ {post.likes}</Text>
+        <Text style={[s.engageText, { color: colors.secondaryLabel }]}>💬 {post.comments}</Text>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  card: { paddingVertical: 16, borderBottomWidth: 0.5, borderBottomColor: '#E5E5E5' },
+const s = StyleSheet.create({
+  card: { paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F0F0F0', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 13, fontWeight: '600', fontFamily: 'Outfit-SemiBold', color: '#333' },
-  author: { fontSize: 14, fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
-  time: { fontSize: 12, color: '#999', fontFamily: 'Outfit' },
-  body: { fontSize: 14, lineHeight: 22, color: '#333', marginBottom: 10, fontFamily: 'Outfit' },
+  avatar: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 14, fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
+  author: { fontSize: 15, fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
+  time: { fontSize: 13, fontFamily: 'Outfit' },
+  body: { fontSize: 15, lineHeight: 22, marginBottom: 10, fontFamily: 'Outfit' },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
-  tag: { borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 100, paddingVertical: 4, paddingHorizontal: 10 },
-  tagText: { fontSize: 11, color: '#666', fontFamily: 'Outfit-Medium' },
+  tag: { borderRadius: 100, paddingVertical: 4, paddingHorizontal: 10 },
+  tagText: { fontSize: 13, fontFamily: 'Outfit-Medium' },
   engagement: { flexDirection: 'row', gap: 16 },
-  engageText: { fontSize: 13, color: '#999', fontFamily: 'Outfit' },
+  engageText: { fontSize: 13, fontFamily: 'Outfit' },
 });

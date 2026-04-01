@@ -5,12 +5,14 @@ import Svg, { Path, Polyline } from 'react-native-svg';
 import { CalendarGrid } from '../../components/diary/CalendarGrid';
 import { DiaryEntryCard } from '../../components/diary/DiaryEntryCard';
 import { useDiaryStore } from '../../stores/diaryStore';
+import { useTheme } from '../../lib/theme';
 import { mockCalendarDots } from '../../constants/mockData';
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 export default function DiaryScreen() {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const { entries } = useDiaryStore();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
@@ -27,28 +29,28 @@ export default function DiaryScreen() {
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.systemBackground }]}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: 100 }}
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Skin Diary</Text>
-        <Pressable style={styles.addBtn} accessible accessibilityLabel="Add diary entry">
-          <Text style={styles.addBtnText}>+ Add entry</Text>
+        <Text style={[styles.title, { color: colors.label }]}>Skin Diary</Text>
+        <Pressable style={[styles.addBtn, { borderColor: colors.separator }]} accessible accessibilityLabel="Add diary entry">
+          <Text style={[styles.addBtnText, { color: colors.label }]}>+ Add entry</Text>
         </Pressable>
       </View>
 
       {/* Month navigator */}
       <View style={styles.monthNav}>
         <Pressable onPress={prevMonth} style={styles.navBtn} accessible accessibilityLabel="Previous month">
-          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="1.8" strokeLinecap="round">
+          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.label} strokeWidth="1.8" strokeLinecap="round">
             <Path d="M15 18l-6-6 6-6" />
           </Svg>
         </Pressable>
-        <Text style={styles.monthLabel}>{MONTH_NAMES[month]} {year}</Text>
+        <Text style={[styles.monthLabel, { color: colors.label }]}>{MONTH_NAMES[month]} {year}</Text>
         <Pressable onPress={nextMonth} style={styles.navBtn} accessible accessibilityLabel="Next month">
-          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="1.8" strokeLinecap="round">
+          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.label} strokeWidth="1.8" strokeLinecap="round">
             <Polyline points="9 18 15 12 9 6" />
           </Svg>
         </Pressable>
@@ -61,17 +63,17 @@ export default function DiaryScreen() {
 
       {/* Legend */}
       <View style={styles.legend}>
-        {[{ label: 'Good', color: '#333' }, { label: 'Okay', color: '#999' }, { label: 'Bad', color: '#CCC' }].map(item => (
+        {[{ label: 'Good', color: colors.systemGreen }, { label: 'Okay', color: colors.systemOrange }, { label: 'Bad', color: colors.systemRed }].map(item => (
           <View key={item.label} style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: item.color }]} />
-            <Text style={styles.legendLabel}>{item.label}</Text>
+            <Text style={[styles.legendLabel, { color: colors.secondaryLabel }]}>{item.label}</Text>
           </View>
         ))}
       </View>
 
       {/* Recent entries */}
       <View style={styles.recentSection}>
-        <Text style={styles.sectionTitle}>Recent Entries</Text>
+        <Text style={[styles.sectionTitle, { color: colors.label }]}>Recent Entries</Text>
         {entries.slice(0, 5).map(entry => (
           <DiaryEntryCard key={entry.id} entry={entry} />
         ))}
@@ -81,10 +83,10 @@ export default function DiaryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
   title: { fontSize: 24, fontWeight: '600', letterSpacing: -0.3, fontFamily: 'Outfit-SemiBold' },
-  addBtn: { borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 100, paddingVertical: 7, paddingHorizontal: 14 },
+  addBtn: { borderWidth: 0.5, borderRadius: 100, paddingVertical: 7, paddingHorizontal: 14 },
   addBtnText: { fontSize: 12, fontWeight: '500', fontFamily: 'Outfit-Medium' },
   monthNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, marginBottom: 16 },
   navBtn: { padding: 8 },
@@ -93,7 +95,7 @@ const styles = StyleSheet.create({
   legend: { flexDirection: 'row', justifyContent: 'center', gap: 24, marginBottom: 28 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 6, height: 6, borderRadius: 3 },
-  legendLabel: { fontSize: 12, color: '#666', fontFamily: 'Outfit' },
+  legendLabel: { fontSize: 12, fontFamily: 'Outfit' },
   recentSection: { paddingHorizontal: 24 },
   sectionTitle: { fontSize: 18, fontWeight: '600', letterSpacing: -0.2, marginBottom: 14, fontFamily: 'Outfit-SemiBold' },
 });

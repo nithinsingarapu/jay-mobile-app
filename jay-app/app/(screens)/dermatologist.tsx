@@ -6,11 +6,13 @@ import { TopBar } from '../../components/ui/TopBar';
 import { SearchBar } from '../../components/ui/SearchBar';
 import { Chip } from '../../components/ui/Chip';
 import { mockDermatConditions, mockFAQs } from '../../constants/mockData';
+import { useTheme } from '../../lib/theme';
 
 const FILTERS = ['Acne Specialist', 'Cosmetic', 'Teleconsult'];
 
 function FAQItem({ question, answer }: { question: string; answer: string }) {
   const [open, setOpen] = useState(false);
+  const { colors } = useTheme();
   return (
     <Pressable
       style={styles.faqItem}
@@ -25,7 +27,7 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
     >
       <View style={styles.faqHeader}>
         <Text style={styles.faqQuestion}>{question}</Text>
-        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.8" strokeLinecap="round">
+        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.secondaryLabel} strokeWidth="1.8" strokeLinecap="round">
           <Polyline points={open ? '18 15 12 9 6 15' : '6 9 12 15 18 9'} />
         </Svg>
       </View>
@@ -36,10 +38,11 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
 
 export default function DermatologistScreen() {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const [activeFilter, setActiveFilter] = useState('');
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.systemBackground }]}>
       <TopBar title="Dermatologist Guide" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {/* Hero */}
@@ -83,11 +86,11 @@ export default function DermatologistScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1 },
   content: { paddingHorizontal: 24, paddingBottom: 40 },
   heroCard: { borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 14, padding: 16, marginBottom: 28 },
   heroTitle: { fontSize: 16, fontWeight: '600', lineHeight: 22, fontFamily: 'Outfit-SemiBold' },
-  heroDesc: { fontSize: 13, color: '#666', marginTop: 8, lineHeight: 19, fontFamily: 'Outfit' },
+  heroDesc: { fontSize: 13, color: '#8E8E93', marginTop: 8, lineHeight: 19, fontFamily: 'Outfit' },
   sectionTitle: { fontSize: 18, fontWeight: '600', letterSpacing: -0.2, marginBottom: 14, fontFamily: 'Outfit-SemiBold' },
   conditionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 28 },
   conditionCell: { width: '47%', borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 14, padding: 16, alignItems: 'center', gap: 8 },
@@ -99,5 +102,5 @@ const styles = StyleSheet.create({
   faqItem: { paddingHorizontal: 14, paddingVertical: 15, borderBottomWidth: 0.5, borderBottomColor: '#E5E5E5' },
   faqHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   faqQuestion: { flex: 1, fontSize: 14, fontWeight: '500', fontFamily: 'Outfit-Medium', marginRight: 8 },
-  faqAnswer: { fontSize: 13, color: '#666', lineHeight: 20, marginTop: 10, fontFamily: 'Outfit' },
+  faqAnswer: { fontSize: 13, color: '#8E8E93', lineHeight: 20, marginTop: 10, fontFamily: 'Outfit' },
 });

@@ -166,9 +166,9 @@ export const useRoutineStore = create<RoutineState>((set, get) => ({
 
   removeStep: async (routineId, stepId) => {
     try {
-      await routineService.deactivate(routineId); // TODO: implement remove step endpoint call
+      await routineService.removeStep(routineId, stepId);
       await get().init();
-    } catch {}
+    } catch (e) { console.error('[Routine] Remove step:', e); }
   },
 
   loadCost: async () => {

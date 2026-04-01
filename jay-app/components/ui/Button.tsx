@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, Text, StyleSheet, ViewStyle, ActivityIndicator, View } from 'react-native';
 import Animated, { useSharedValue, withTiming, useAnimatedStyle } from 'react-native-reanimated';
+import { useTheme } from '../../lib/theme';
 
 interface ButtonProps {
   label: string;
@@ -15,45 +16,52 @@ interface ButtonProps {
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function Button({ label, onPress, variant = 'primary', style, accessibilityLabel, disabled, loading }: ButtonProps) {
-  const opacity = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  const { colors } = useTheme();
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const isDisabled = disabled || loading;
+
+  const isPrimary = variant === 'primary';
 
   return (
     <AnimatedPressable
-      style={[variant === 'primary' ? styles.primary : styles.outline, animatedStyle, style, isDisabled && { opacity: 0.5 }]}
+      style={[
+        styles.base,
+        isPrimary
+          ? [styles.primary, { backgroundColor: colors.systemBlue }]
+          : [styles.outline, { borderColor: colors.separator }],
+        animStyle,
+        style,
+        isDisabled && { opacity: 0.5 },
+      ]}
       onPress={isDisabled ? undefined : onPress}
       disabled={isDisabled}
-      onPressIn={() => { if (!isDisabled) opacity.value = withTiming(0.85, { duration: 100 }); }}
-      onPressOut={() => { opacity.value = withTiming(1, { duration: 100 }); }}
+      onPressIn={() => { if (!isDisabled) scale.value = withTiming(0.97, { duration: 100 }); }}
+      onPressOut={() => { scale.value = withTiming(1, { duration: 100 }); }}
       accessible={true}
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityRole="button"
     >
       <View style={styles.inner}>
         {loading ? (
-          <ActivityIndicator size="small" color={variant === 'primary' ? '#fff' : '#000'} style={styles.spinner} />
+          <ActivityIndicator size="small" color={isPrimary ? '#fff' : colors.systemBlue} style={styles.spinner} />
         ) : null}
-        <Text style={variant === 'primary' ? styles.primaryText : styles.outlineText}>{label}</Text>
+        <Text style={[styles.text, isPrimary ? { color: '#fff' } : { color: colors.systemBlue }]}>{label}</Text>
       </View>
     </AnimatedPressable>
   );
 }
 
 const styles = StyleSheet.create({
-  primary: {
-    backgroundColor: '#000',
-    borderRadius: 12,
+  base: {
+    borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
   },
+  primary: {},
   outline: {
     backgroundColor: 'transparent',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderWidth: 0.5,
-    borderColor: '#E5E5E5',
+    borderWidth: StyleSheet.hairlineWidth,
   },
   inner: {
     flexDirection: 'row',
@@ -61,18 +69,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-  spinner: {
-    marginRight: 2,
-  },
-  primaryText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'Outfit-SemiBold',
-  },
-  outlineText: {
-    color: '#000',
-    fontSize: 14,
+  spinner: { marginRight: 2 },
+  text: {
+    fontSize: 17,
     fontWeight: '600',
     fontFamily: 'Outfit-SemiBold',
   },

@@ -1,32 +1,34 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTheme } from '../../lib/theme';
 import type { CapSlapVerdict } from '../../types';
 
 interface CapSlapPreviewProps { verdicts: CapSlapVerdict[]; }
 
 export function CapSlapPreview({ verdicts }: CapSlapPreviewProps) {
   const router = useRouter();
+  const { colors } = useTheme();
   const [first, second] = verdicts;
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Cap or slap</Text>
-        <Text style={styles.seeAll}>See all →</Text>
+    <View style={s.container}>
+      <View style={s.header}>
+        <Text style={[s.title, { color: colors.label }]}>Cap or slap</Text>
+        <Text style={[s.seeAll, { color: colors.systemBlue }]}>See all →</Text>
       </View>
-      <View style={styles.row}>
+      <View style={s.row}>
         {[first, second].filter(Boolean).map((v) => (
-          <Pressable key={v.id} style={styles.card} onPress={() => router.push('/(screens)/cap-or-slap' as any)}>
-            <View style={styles.imageArea}>
-              <Text style={styles.emoji}>🧴</Text>
-              <View style={[styles.badge, v.verdict === 'SLAP' ? styles.slapBadge : styles.capBadge]}>
-                <Text style={styles.badgeText}>{v.verdict}</Text>
+          <Pressable key={v.id} style={[s.card, { backgroundColor: colors.secondarySystemBackground }]} onPress={() => router.push('/(screens)/cap-or-slap' as any)}>
+            <View style={[s.imageArea, { backgroundColor: colors.tertiarySystemFill }]}>
+              <Text style={s.emoji}>🧴</Text>
+              <View style={[s.badge, { backgroundColor: v.verdict === 'SLAP' ? colors.systemGreen : colors.systemGray }]}>
+                <Text style={s.badgeText}>{v.verdict}</Text>
               </View>
             </View>
-            <View style={styles.info}>
-              <Text style={styles.productName}>{v.product}</Text>
-              <Text style={styles.reason} numberOfLines={2}>{v.reason}</Text>
-              <Text style={[styles.score, v.verdict === 'CAP' && styles.scoreGrey]}>{v.score}</Text>
+            <View style={s.info}>
+              <Text style={[s.productName, { color: colors.label }]}>{v.product}</Text>
+              <Text style={[s.reason, { color: colors.secondaryLabel }]} numberOfLines={2}>{v.reason}</Text>
+              <Text style={[s.score, { color: v.verdict === 'CAP' ? colors.tertiaryLabel : colors.label }]}>{v.score}</Text>
             </View>
           </Pressable>
         ))}
@@ -35,22 +37,19 @@ export function CapSlapPreview({ verdicts }: CapSlapPreviewProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { paddingHorizontal: 24, marginBottom: 28 },
+const s = StyleSheet.create({
+  container: { paddingHorizontal: 20, marginBottom: 28 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 },
-  title: { fontSize: 18, fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
-  seeAll: { fontSize: 12, color: '#999', fontWeight: '500', fontFamily: 'Outfit-Medium' },
+  title: { fontSize: 20, fontWeight: '700', fontFamily: 'Outfit-Bold' },
+  seeAll: { fontSize: 13, fontWeight: '500', fontFamily: 'Outfit-Medium' },
   row: { flexDirection: 'row', gap: 12 },
-  card: { flex: 1, borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 14, overflow: 'hidden' },
-  imageArea: { height: 88, backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  emoji: { fontSize: 30, opacity: 0.1 },
-  badge: { position: 'absolute', top: 8, right: 8, borderRadius: 5, paddingHorizontal: 7, paddingVertical: 3 },
-  slapBadge: { backgroundColor: '#000' },
-  capBadge: { backgroundColor: '#888' },
-  badgeText: { color: '#fff', fontSize: 9, fontWeight: '700', letterSpacing: 0.5, fontFamily: 'Outfit-Bold' },
+  card: { flex: 1, borderRadius: 12, overflow: 'hidden' },
+  imageArea: { height: 88, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  emoji: { fontSize: 30, opacity: 0.15 },
+  badge: { position: 'absolute', top: 8, right: 8, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.5, fontFamily: 'Outfit-Bold' },
   info: { padding: 12 },
-  productName: { fontSize: 13, fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
-  reason: { fontSize: 11, color: '#999', marginTop: 3, lineHeight: 15, fontFamily: 'Outfit' },
-  score: { fontSize: 20, fontWeight: '700', marginTop: 8, fontFamily: 'Outfit-Bold' },
-  scoreGrey: { color: '#CCC' },
+  productName: { fontSize: 15, fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
+  reason: { fontSize: 13, marginTop: 4, lineHeight: 18, fontFamily: 'Outfit' },
+  score: { fontSize: 22, fontWeight: '700', marginTop: 8, fontFamily: 'Outfit-Bold' },
 });

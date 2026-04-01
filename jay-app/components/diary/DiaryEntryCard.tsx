@@ -1,39 +1,30 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTheme } from '../../lib/theme';
 import type { DiaryEntry } from '../../types';
 
 const MOOD_EMOJIS = ['', '😞', '😕', '😐', '😊', '😄'];
 
-interface DiaryEntryCardProps { entry: DiaryEntry; }
-
-export function DiaryEntryCard({ entry }: DiaryEntryCardProps) {
+export function DiaryEntryCard({ entry }: { entry: DiaryEntry }) {
   const router = useRouter();
+  const { colors } = useTheme();
   const date = new Date(entry.date + 'T00:00:00');
-  const day = date.getDate();
-  const month = date.toLocaleString('default', { month: 'short' });
 
   return (
-    <Pressable
-      style={styles.card}
-      onPress={() => router.push(`/(screens)/diary/${entry.date}` as any)}
-      accessible
-      accessibilityLabel={`Diary entry ${entry.date}, ${entry.moodLabel} mood`}
-    >
-      <View style={styles.datePart}>
-        <Text style={styles.day}>{day}</Text>
-        <Text style={styles.month}>{month.toUpperCase()}</Text>
+    <Pressable style={[s.card, { backgroundColor: colors.secondarySystemBackground }]} onPress={() => router.push(`/(screens)/diary/${entry.date}` as any)}>
+      <View style={s.datePart}>
+        <Text style={[s.day, { color: colors.label }]}>{date.getDate()}</Text>
+        <Text style={[s.month, { color: colors.tertiaryLabel }]}>{date.toLocaleString('default', { month: 'short' }).toUpperCase()}</Text>
       </View>
-      <View style={styles.content}>
-        <View style={styles.moodRow}>
-          <Text style={styles.emoji}>{MOOD_EMOJIS[entry.mood]}</Text>
-          <Text style={styles.moodLabel}>{entry.moodLabel}</Text>
+      <View style={s.content}>
+        <View style={s.moodRow}>
+          <Text style={s.emoji}>{MOOD_EMOJIS[entry.mood]}</Text>
+          <Text style={[s.moodLabel, { color: colors.label }]}>{entry.moodLabel}</Text>
         </View>
-        <View style={styles.tags}>
+        <View style={s.tags}>
           {entry.tags.map((tag) => (
-            <View key={tag} style={styles.tag}>
-              <Text style={styles.tagText}>{tag}</Text>
-            </View>
+            <View key={tag} style={[s.tag, { backgroundColor: colors.quaternarySystemFill }]}><Text style={[s.tagText, { color: colors.secondaryLabel }]}>{tag}</Text></View>
           ))}
         </View>
       </View>
@@ -41,16 +32,16 @@ export function DiaryEntryCard({ entry }: DiaryEntryCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  card: { flexDirection: 'row', borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 14, padding: 14, gap: 14, marginBottom: 10, backgroundColor: '#fff' },
+const s = StyleSheet.create({
+  card: { flexDirection: 'row', borderRadius: 12, padding: 14, gap: 14, marginBottom: 10 },
   datePart: { alignItems: 'center', minWidth: 36 },
-  day: { fontSize: 18, fontWeight: '700', fontFamily: 'Outfit-Bold' },
-  month: { fontSize: 10, color: '#999', fontWeight: '600', letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'Outfit-SemiBold' },
+  day: { fontSize: 20, fontWeight: '700', fontFamily: 'Outfit-Bold' },
+  month: { fontSize: 11, fontWeight: '600', letterSpacing: 0.5, fontFamily: 'Outfit-SemiBold' },
   content: { flex: 1 },
   moodRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  emoji: { fontSize: 18 },
-  moodLabel: { fontSize: 14, fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
+  emoji: { fontSize: 20 },
+  moodLabel: { fontSize: 15, fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  tag: { borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 100, paddingVertical: 4, paddingHorizontal: 10 },
-  tagText: { fontSize: 12, color: '#666', fontFamily: 'Outfit-Medium' },
+  tag: { borderRadius: 100, paddingVertical: 4, paddingHorizontal: 10 },
+  tagText: { fontSize: 13, fontFamily: 'Outfit-Medium' },
 });

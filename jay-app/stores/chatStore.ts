@@ -69,7 +69,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         await get().openConversation(convs[0].id);
       }
       // If no conversations, stay on empty state — user will create one by sending a message
-    } catch (e) { console.error('[Chat] Init failed:', e); }
+    } catch {}
     set({ isLoading: false });
   },
 
@@ -101,7 +101,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const conv = await apiFetch<{ id: string }>('/api/v1/chat/conversations', { method: 'POST' });
         conversationId = conv.id;
         set({ conversationId });
-      } catch { return; }
+        console.log('[JAY Chat] Created conversation:', conversationId);
+      } catch (e: any) { console.error('[JAY Chat] Failed to create conversation:', e.message); return; }
     }
 
     const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', text, timestamp: fmtTime() };
@@ -125,31 +126,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
 
-      const res = await fetch(`${API_URL}/api/v1/chat/conversations/${conversationId}/stream`, {
+      // Use sync endpoint — React Native fetch doesn't support readable streams
+      const res = await fetch(`${API_URL}/api/v1/chat/conversations/${conversationId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ content: text, mode: get().mode }),
         signal: controller.signal,
       });
 
-      if (!res.ok) throw new Error(`API ${res.status}`);
-      const reader = res.body?.getReader();
-      if (!reader) throw new Error('No body');
-
-      const decoder = new TextDecoder();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        for (const line of decoder.decode(value, { stream: true }).split('\n')) {
-          if (line.startsWith('data: ')) {
-            const d = line.slice(6);
-            if (d === '[DONE]') continue;
-            fullText += d;
-            set((s) => ({ messages: s.messages.map((m) => m.id === jayId ? { ...m, text: fullText } : m) }));
-          }
-        }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || `API ${res.status}`);
       }
+
+      const result = await res.json();
+      fullText = result.content || result.text || '';
     } catch (e: any) {
+      console.error('[JAY Chat] Error:', e.name, e.message);
       if (e.name === 'AbortError') fullText = fullText || '(Stopped generating)';
       else if (!fullText) fullText = "Couldn't connect to JAY right now. Is the backend running?";
     }

@@ -75,6 +75,16 @@ export interface GeneratedRoutine {
   conflicts_checked: Record<string, unknown>[];
 }
 
+export interface SearchProduct {
+  id: number;
+  name: string;
+  brand: string;
+  category: string;
+  price_inr: number;
+  key_ingredients: string[];
+  image_url: string | null;
+}
+
 export const routineService = {
   // Types
   getTypes: () => apiFetch<Record<string, unknown>>('/api/v1/routine/types', { noAuth: true }),
@@ -87,6 +97,12 @@ export const routineService = {
     apiFetch<RoutineStep>(`/api/v1/routine/${routineId}/steps`, { method: 'POST', body: data }),
   deactivate: (routineId: string) =>
     apiFetch(`/api/v1/routine/${routineId}`, { method: 'DELETE' }),
+  removeStep: (routineId: string, stepId: string) =>
+    apiFetch(`/api/v1/routine/${routineId}/steps/${stepId}`, { method: 'DELETE' }),
+  validate: (data: { steps: Record<string, unknown>[]; period: string }) =>
+    apiFetch<{ valid: boolean; conflicts: { message: string; severity: string }[]; suggestions: string[] }>('/api/v1/routine/validate', { method: 'POST', body: data }),
+  searchProducts: (category: string, budget?: number) =>
+    apiFetch<SearchProduct[]>(`/api/v1/routine/products/search?category=${category}${budget ? `&budget=${budget}` : ''}`),
 
   // Tracking
   completeStep: (routineId: string, stepId: string, skipped = false, skipReason?: string) =>

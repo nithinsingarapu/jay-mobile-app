@@ -1,12 +1,14 @@
 import React from 'react';
 import { Text, StyleSheet, TextStyle } from 'react-native';
+import { useTheme } from '../../lib/theme';
 
 interface SectionHeaderProps { label: string; style?: TextStyle; }
 
 export function SectionHeader({ label, style }: SectionHeaderProps) {
-  return <Text style={[styles.label, style]}>{label.toUpperCase()}</Text>;
+  const { colors } = useTheme();
+  return <Text style={[styles.label, { color: colors.secondaryLabel }, style]}>{label}</Text>;
 }
 
 const styles = StyleSheet.create({
-  label: { fontSize: 10, fontWeight: '600', color: '#999', letterSpacing: 2.5, textTransform: 'uppercase', fontFamily: 'Outfit-SemiBold' },
+  label: { fontSize: 13, fontWeight: '400', fontFamily: 'Outfit' },
 });

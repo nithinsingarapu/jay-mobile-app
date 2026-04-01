@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TopBar } from '../../components/ui/TopBar';
 import { Button } from '../../components/ui/Button';
 import { useUserStore } from '../../stores/userStore';
+import { useTheme } from '../../lib/theme';
 import { mergePreferences, profileService } from '../../services/profile';
 import type { BackendProfile } from '../../services/profile';
 
@@ -212,6 +213,7 @@ function hydrateEditState(profile: BackendProfile) {
 export default function PreferencesScreen() {
   const insets = useSafeAreaInsets();
   const { backendProfile, fetchProfile, user } = useUserStore();
+  const { colors } = useTheme();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -356,7 +358,7 @@ export default function PreferencesScreen() {
 
   if (!backendProfile) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.groupedBackground }]}>
         <TopBar title="Skin Profile" />
         <View style={styles.emptyState}>
           <Text style={{ fontSize: 40 }}>🪞</Text>
@@ -370,7 +372,7 @@ export default function PreferencesScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.groupedBackground }]}>
       <TopBar title="Skin Profile" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <View style={styles.completenessBar}>
@@ -633,7 +635,7 @@ export default function PreferencesScreen() {
               value={allergiesText}
               onChangeText={setAllergiesText}
               placeholder="e.g. fragrance, parabens"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.placeholderText}
               multiline
             />
 
@@ -816,20 +818,20 @@ function LevelEditor({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1 },
   content: { paddingHorizontal: 24, paddingBottom: 40 },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
   emptyTitle: { fontSize: 20, fontWeight: '600', fontFamily: 'Outfit-SemiBold', marginTop: 12 },
-  emptySubtitle: { fontSize: 14, color: '#999', fontFamily: 'Outfit', marginTop: 8, textAlign: 'center' },
+  emptySubtitle: { fontSize: 14, color: '#8E8E93', fontFamily: 'Outfit', marginTop: 8, textAlign: 'center' },
 
   completenessBar: { marginBottom: 24 },
   completenessTrack: { height: 4, backgroundColor: '#F2F2F2', borderRadius: 2 },
   completenessFill: { height: 4, backgroundColor: '#000', borderRadius: 2 },
-  completenessText: { fontSize: 12, color: '#999', fontFamily: 'Outfit-Medium', marginTop: 6 },
+  completenessText: { fontSize: 12, color: '#8E8E93', fontFamily: 'Outfit-Medium', marginTop: 6 },
 
   sectionLabel: {
     fontSize: 10,
-    color: '#999',
+    color: '#8E8E93',
     fontWeight: '600',
     letterSpacing: 2.5,
     textTransform: 'uppercase',
@@ -848,19 +850,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: '#F2F2F2',
   },
-  infoLabel: { fontSize: 13, color: '#999', fontFamily: 'Outfit', flex: 1 },
-  infoValue: { fontSize: 13, color: '#000', fontFamily: 'Outfit-Medium', flex: 1.5, textAlign: 'right' },
+  infoLabel: { fontSize: 13, color: '#8E8E93', fontFamily: 'Outfit', flex: 1 },
+  infoValue: { fontSize: 13, color: '#8E8E93', fontFamily: 'Outfit-Medium', flex: 1.5, textAlign: 'right' },
 
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1.5, justifyContent: 'flex-end' },
   miniChip: { backgroundColor: '#F5F5F5', borderRadius: 100, paddingHorizontal: 10, paddingVertical: 4 },
-  miniChipText: { fontSize: 11, fontFamily: 'Outfit-Medium', color: '#333' },
+  miniChipText: { fontSize: 11, fontFamily: 'Outfit-Medium', color: '#8E8E93' },
 
   levelDots: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   levelDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#F2F2F2' },
   levelDotFilled: { backgroundColor: '#000' },
-  levelNum: { fontSize: 11, color: '#999', fontFamily: 'Outfit', marginLeft: 6 },
+  levelNum: { fontSize: 11, color: '#8E8E93', fontFamily: 'Outfit', marginLeft: 6 },
 
-  editLabel: { fontSize: 13, color: '#555', fontFamily: 'Outfit-Medium', marginBottom: 8 },
+  editLabel: { fontSize: 13, color: '#8E8E93', fontFamily: 'Outfit-Medium', marginBottom: 8 },
   optionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   option: {
     borderWidth: 0.5,
@@ -889,7 +891,7 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 14,
     fontFamily: 'Outfit',
-    color: '#000',
+    color: '#8E8E93',
     minHeight: 44,
     textAlignVertical: 'top',
   },
@@ -913,6 +915,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   levelBtnActive: { backgroundColor: '#000', borderColor: '#000' },
-  levelBtnText: { fontSize: 14, fontFamily: 'Outfit-Medium', color: '#000' },
+  levelBtnText: { fontSize: 14, fontFamily: 'Outfit-Medium', color: '#8E8E93' },
   levelBtnTextActive: { color: '#fff' },
 });

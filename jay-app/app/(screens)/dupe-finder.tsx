@@ -5,6 +5,7 @@ import Animated, { useSharedValue, withTiming, Easing, useAnimatedStyle } from '
 import { TopBar } from '../../components/ui/TopBar';
 import { Button } from '../../components/ui/Button';
 import { mockDupeResults } from '../../constants/mockData';
+import { useTheme } from '../../lib/theme';
 
 function MatchBar({ percent }: { percent: number }) {
   const width = useSharedValue(0);
@@ -21,10 +22,11 @@ function MatchBar({ percent }: { percent: number }) {
 
 export default function DupeFinderScreen() {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const { original, dupes, totalSavings } = mockDupeResults;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.systemBackground }]}>
       <TopBar title="Dupe Finder" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {/* Original product */}
@@ -83,17 +85,17 @@ export default function DupeFinderScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1 },
   content: { paddingHorizontal: 24, paddingBottom: 40 },
-  sectionLabel: { fontSize: 10, color: '#999', fontWeight: '600', letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 12, fontFamily: 'Outfit-SemiBold' },
+  sectionLabel: { fontSize: 10, color: '#8E8E93', fontWeight: '600', letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 12, fontFamily: 'Outfit-SemiBold' },
   originalCard: { borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 14, padding: 14, marginBottom: 24 },
   originalRow: { flexDirection: 'row', gap: 12, marginTop: 10 },
   productCircle: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center' },
   productCircleText: { fontSize: 14, fontWeight: '700', fontFamily: 'Outfit-Bold' },
   originalInfo: { flex: 1 },
   productName: { fontSize: 14, fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
-  brandText: { fontSize: 12, color: '#999', marginTop: 2, fontFamily: 'Outfit' },
-  ingredientText: { fontSize: 12, color: '#666', marginTop: 4, lineHeight: 18, fontFamily: 'Outfit' },
+  brandText: { fontSize: 12, color: '#8E8E93', marginTop: 2, fontFamily: 'Outfit' },
+  ingredientText: { fontSize: 12, color: '#8E8E93', marginTop: 4, lineHeight: 18, fontFamily: 'Outfit' },
   price: { fontSize: 16, fontWeight: '700', marginTop: 6, fontFamily: 'Outfit-Bold' },
   dupeCard: { borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 14, padding: 14, marginBottom: 12 },
   dupeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
@@ -101,26 +103,26 @@ const styles = StyleSheet.create({
   rankBest: { backgroundColor: '#000' },
   rankOther: { backgroundColor: '#F5F5F5' },
   rankText: { fontSize: 10, color: '#fff', fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', fontFamily: 'Outfit-Bold' },
-  rankTextDark: { color: '#333' },
+  rankTextDark: { color: '#8E8E93' },
   pctBadge: { borderRadius: 100, paddingVertical: 4, paddingHorizontal: 10 },
   pctBest: { backgroundColor: '#000' },
   pctOther: { backgroundColor: '#F5F5F5' },
   pctText: { fontSize: 12, color: '#fff', fontWeight: '700', fontFamily: 'Outfit-Bold' },
-  pctTextDark: { color: '#333' },
+  pctTextDark: { color: '#8E8E93' },
   dupeName: { fontSize: 15, fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
-  dupeBrand: { fontSize: 12, color: '#999', marginTop: 2, fontFamily: 'Outfit' },
+  dupeBrand: { fontSize: 12, color: '#8E8E93', marginTop: 2, fontFamily: 'Outfit' },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8, marginBottom: 10 },
   dupePrice: { fontSize: 16, fontWeight: '700', fontFamily: 'Outfit-Bold' },
   savingsText: { fontSize: 12, fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
   matchBarRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  matchLabel: { fontSize: 12, color: '#999', fontFamily: 'Outfit' },
+  matchLabel: { fontSize: 12, color: '#8E8E93', fontFamily: 'Outfit' },
   matchPct: { fontSize: 12, fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
   barTrack: { height: 4, backgroundColor: '#F2F2F2', borderRadius: 2, overflow: 'hidden', marginBottom: 12 },
   barFill: { height: 4, backgroundColor: '#000', borderRadius: 2 },
   dupeActions: { flexDirection: 'row', gap: 8 },
   dupeBtn: { flex: 1 },
   savingsHero: { alignItems: 'center', paddingVertical: 32 },
-  savingsLabel: { fontSize: 10, color: '#999', fontWeight: '600', letterSpacing: 2.5, textTransform: 'uppercase', fontFamily: 'Outfit-SemiBold', marginBottom: 8 },
+  savingsLabel: { fontSize: 10, color: '#8E8E93', fontWeight: '600', letterSpacing: 2.5, textTransform: 'uppercase', fontFamily: 'Outfit-SemiBold', marginBottom: 8 },
   savingsAmount: { fontSize: 40, fontWeight: '700', letterSpacing: -1.5, fontFamily: 'Outfit-Bold' },
-  savingsNote: { fontSize: 13, color: '#999', marginTop: 6, fontFamily: 'Outfit' },
+  savingsNote: { fontSize: 13, color: '#8E8E93', marginTop: 6, fontFamily: 'Outfit' },
 });

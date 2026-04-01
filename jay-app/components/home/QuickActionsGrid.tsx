@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet, FlatList } from 'react-native';
 import { useRouter } from 'expo-router';
 import Svg, { Path, Circle, Rect, Line, Polyline } from 'react-native-svg';
+import { useTheme } from '../../lib/theme';
 
 const actions = [
   { id: 'ask-jay', label: 'Ask JAY', route: '/(tabs)/jay', icon: 'chat' },
@@ -14,8 +15,8 @@ const actions = [
   { id: 'community', label: 'Community', route: '/(screens)/community', icon: 'users' },
 ];
 
-function ActionIcon({ icon }: { icon: string }) {
-  const p = { width: 19, height: 19, viewBox: '0 0 24 24', fill: 'none', stroke: '#000', strokeWidth: '1.5', strokeLinecap: 'round' as const };
+function ActionIcon({ icon, color }: { icon: string; color: string }) {
+  const p = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: color, strokeWidth: '1.5', strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   switch (icon) {
     case 'chat': return <Svg {...p}><Path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></Svg>;
     case 'scan': return <Svg {...p}><Rect x="3" y="3" width="18" height="18" rx="2" /><Path d="M8 3v18M3 8h5M3 16h5" /></Svg>;
@@ -31,9 +32,10 @@ function ActionIcon({ icon }: { icon: string }) {
 
 export function QuickActionsGrid() {
   const router = useRouter();
+  const { colors } = useTheme();
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>EXPLORE</Text>
+      <Text style={[styles.label, { color: colors.secondaryLabel }]}>EXPLORE</Text>
       <FlatList
         data={actions}
         numColumns={4}
@@ -41,9 +43,11 @@ export function QuickActionsGrid() {
         keyExtractor={(item) => item.id}
         columnWrapperStyle={styles.row}
         renderItem={({ item }) => (
-          <Pressable style={styles.actionItem} onPress={() => router.push(item.route as any)} accessible accessibilityLabel={item.label} accessibilityRole="button">
-            <View style={styles.iconCircle}><ActionIcon icon={item.icon} /></View>
-            <Text style={styles.actionLabel}>{item.label}</Text>
+          <Pressable style={styles.actionItem} onPress={() => router.push(item.route as any)} accessibilityLabel={item.label}>
+            <View style={[styles.iconCircle, { backgroundColor: colors.tertiarySystemFill }]}>
+              <ActionIcon icon={item.icon} color={colors.label} />
+            </View>
+            <Text style={[styles.actionLabel, { color: colors.secondaryLabel }]}>{item.label}</Text>
           </Pressable>
         )}
       />
@@ -52,10 +56,10 @@ export function QuickActionsGrid() {
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 24, marginBottom: 28 },
-  label: { fontSize: 10, fontWeight: '600', color: '#999', letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 16, fontFamily: 'Outfit-SemiBold' },
+  container: { paddingHorizontal: 20, marginBottom: 28 },
+  label: { fontSize: 13, fontWeight: '400', letterSpacing: -0.08, marginBottom: 16, fontFamily: 'Outfit' },
   row: { justifyContent: 'space-between' },
-  actionItem: { flex: 1, alignItems: 'center', gap: 9, paddingVertical: 12 },
-  iconCircle: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center' },
-  actionLabel: { fontSize: 11, color: '#666', fontWeight: '500', fontFamily: 'Outfit-Medium' },
+  actionItem: { flex: 1, alignItems: 'center', gap: 8, paddingVertical: 12 },
+  iconCircle: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  actionLabel: { fontSize: 11, fontWeight: '500', fontFamily: 'Outfit-Medium' },
 });

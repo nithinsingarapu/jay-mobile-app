@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TopBar } from '../../components/ui/TopBar';
+import { useTheme } from '../../lib/theme';
 
 const NOTIFICATIONS = [
   { id: '1', title: 'Time for your AM routine', body: "Don't forget your Vitamin C serum!", time: '9:00 AM', unread: true },
@@ -12,8 +13,9 @@ const NOTIFICATIONS = [
 
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.systemBackground }]}>
       <TopBar title="Notifications" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {NOTIFICATIONS.map((n) => (
@@ -32,13 +34,13 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1 },
   content: { paddingHorizontal: 24, paddingBottom: 40 },
   notifRow: { flexDirection: 'row', gap: 12, paddingVertical: 16, borderBottomWidth: 0.5, borderBottomColor: '#E5E5E5', alignItems: 'flex-start' },
   notifRead: { opacity: 0.5 },
   unreadDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#000', marginTop: 6, flexShrink: 0 },
   notifContent: { flex: 1 },
   notifTitle: { fontSize: 14, fontWeight: '600', fontFamily: 'Outfit-SemiBold' },
-  notifBody: { fontSize: 13, color: '#666', marginTop: 3, fontFamily: 'Outfit' },
-  notifTime: { fontSize: 11, color: '#999', marginTop: 4, fontFamily: 'Outfit' },
+  notifBody: { fontSize: 13, color: '#8E8E93', marginTop: 3, fontFamily: 'Outfit' },
+  notifTime: { fontSize: 11, color: '#8E8E93', marginTop: 4, fontFamily: 'Outfit' },
 });

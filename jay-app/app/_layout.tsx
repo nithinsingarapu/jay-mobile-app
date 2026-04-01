@@ -4,11 +4,12 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useUserStore } from '../stores/userStore';
+import { ThemeProvider, useTheme } from '../lib/theme';
 
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
-export default function RootLayout() {
-  const [loaded] = useFonts({
+function RootNavigator() {
+  const [loaded, fontError] = useFonts({
     Outfit: require('../assets/fonts/Outfit-Regular.ttf'),
     'Outfit-Medium': require('../assets/fonts/Outfit-Medium.ttf'),
     'Outfit-SemiBold': require('../assets/fonts/Outfit-SemiBold.ttf'),
@@ -18,32 +19,48 @@ export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
   const { initAuth, isAuthLoading, isAuthenticated } = useUserStore();
+  const { isDark } = useTheme();
 
-  useEffect(() => { initAuth(); }, []);
+  const fontsReady = loaded || !!fontError;
 
   useEffect(() => {
-    if (!loaded || isAuthLoading) return;
-    SplashScreen.hideAsync();
+    initAuth();
+    const timeout = setTimeout(() => {
+      if (useUserStore.getState().isAuthLoading) {
+        useUserStore.setState({ isAuthLoading: false });
+      }
+    }, 5000);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  useEffect(() => {
+    if (!fontsReady || isAuthLoading) return;
+    SplashScreen.hideAsync().catch(() => {});
 
     const inTabsGroup = segments[0] === '(tabs)';
-
-    // ONLY guard: kick unauthenticated users out of protected tabs
-    // Everything else is handled by each screen's own navigation logic
     if (!isAuthenticated && inTabsGroup) {
       router.replace('/onboarding');
     }
-  }, [loaded, isAuthLoading, isAuthenticated, segments]);
+  }, [fontsReady, isAuthLoading, isAuthenticated, segments]);
 
-  if (!loaded || isAuthLoading) return null;
+  if (!fontsReady || isAuthLoading) return null;
 
   return (
     <>
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="onboarding" options={{ animation: 'none' }} />
         <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
         <Stack.Screen name="(screens)" />
       </Stack>
     </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <RootNavigator />
+    </ThemeProvider>
   );
 }

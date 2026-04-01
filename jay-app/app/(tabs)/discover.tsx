@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ScrollView, View, Text, StyleSheet, Pressable, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip } from '../../components/ui/Chip';
+import { useTheme } from '../../lib/theme';
 import { mockDiscoverArticles } from '../../constants/mockData';
 
 const FILTERS = ['All', 'Trending', 'Ingredients', 'Routines', 'Myths'];
@@ -10,13 +11,14 @@ const BG_COLORS = ['#1A2A3A', '#2A1A3A', '#1A3A2A', '#3A2A1A', '#1A2A3A'];
 
 export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const [activeFilter, setActiveFilter] = useState('All');
   const featured = mockDiscoverArticles[0];
   const rest = mockDiscoverArticles.slice(1);
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.systemBackground }]}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: 100 }}
     >
@@ -53,7 +55,7 @@ export default function DiscoverScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: 'transparent' },
   title: { fontSize: 24, fontWeight: '600', letterSpacing: -0.3, paddingHorizontal: 24, marginBottom: 16, fontFamily: 'Outfit-SemiBold' },
   filters: { paddingHorizontal: 24, gap: 8, marginBottom: 20 },
   featuredCard: { marginHorizontal: 24, borderRadius: 16, padding: 24, minHeight: 180, justifyContent: 'flex-end', marginBottom: 24 },
@@ -65,5 +67,5 @@ const styles = StyleSheet.create({
   articleThumb: { width: 72, height: 72, borderRadius: 10 },
   articleInfo: { flex: 1, justifyContent: 'center' },
   articleTitle: { fontSize: 14, fontWeight: '600', lineHeight: 20, fontFamily: 'Outfit-SemiBold' },
-  articleMeta: { fontSize: 12, color: '#999', marginTop: 4, fontFamily: 'Outfit' },
+  articleMeta: { fontSize: 12, color: '#8E8E93', marginTop: 4, fontFamily: 'Outfit' },
 });

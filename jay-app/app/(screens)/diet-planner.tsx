@@ -6,15 +6,17 @@ import { Chip } from '../../components/ui/Chip';
 import { ScoreRing } from '../../components/ui/ScoreRing';
 import { Button } from '../../components/ui/Button';
 import { mockDietPlan } from '../../constants/mockData';
+import { useTheme } from '../../lib/theme';
 
 export default function DietPlannerScreen() {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const [optimizeFor, setOptimizeFor] = useState<string[]>(mockDietPlan.optimizeFor);
 
   const waterPct = Math.round((mockDietPlan.waterIntake.current / mockDietPlan.waterIntake.goal) * 100);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.systemBackground }]}>
       <TopBar title="Diet Planner" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {/* Optimize for */}
@@ -60,20 +62,20 @@ export default function DietPlannerScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1 },
   content: { paddingHorizontal: 24, paddingBottom: 40 },
   section: { marginBottom: 24 },
-  sectionLabel: { fontSize: 10, color: '#999', fontWeight: '600', letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 10, fontFamily: 'Outfit-SemiBold' },
+  sectionLabel: { fontSize: 10, color: '#8E8E93', fontWeight: '600', letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 10, fontFamily: 'Outfit-SemiBold' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   mealCard: { borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 14, padding: 14, marginBottom: 12 },
-  mealType: { fontSize: 10, color: '#999', fontWeight: '600', letterSpacing: 1.5, textTransform: 'uppercase', fontFamily: 'Outfit-SemiBold' },
+  mealType: { fontSize: 10, color: '#8E8E93', fontWeight: '600', letterSpacing: 1.5, textTransform: 'uppercase', fontFamily: 'Outfit-SemiBold' },
   mealDish: { fontSize: 15, fontWeight: '600', marginTop: 6, fontFamily: 'Outfit-SemiBold' },
-  mealDesc: { fontSize: 13, color: '#666', marginTop: 4, lineHeight: 18, fontFamily: 'Outfit' },
+  mealDesc: { fontSize: 13, color: '#8E8E93', marginTop: 4, lineHeight: 18, fontFamily: 'Outfit' },
   nutrients: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
   nutrientChip: { backgroundColor: '#F5F5F5', borderRadius: 100, paddingVertical: 4, paddingHorizontal: 10 },
-  nutrientText: { fontSize: 11, color: '#666', fontFamily: 'Outfit-Medium' },
+  nutrientText: { fontSize: 11, color: '#8E8E93', fontFamily: 'Outfit-Medium' },
   waterCard: { borderWidth: 0.5, borderColor: '#E5E5E5', borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 },
   waterLeft: {},
   waterNum: { fontSize: 18, fontWeight: '600', marginTop: 6, fontFamily: 'Outfit-SemiBold' },
-  waterSub: { fontSize: 12, color: '#999', marginTop: 3, fontFamily: 'Outfit' },
+  waterSub: { fontSize: 12, color: '#8E8E93', marginTop: 3, fontFamily: 'Outfit' },
 });
