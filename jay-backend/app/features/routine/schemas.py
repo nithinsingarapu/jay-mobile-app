@@ -8,8 +8,9 @@ from datetime import datetime
 
 class CreateRoutineRequest(BaseModel):
     name: str | None = None
-    period: Literal["am", "pm"]
+    period: str = "morning"
     routine_type: Literal["essential", "complete", "glass_skin", "barrier_repair", "anti_acne", "custom"]
+    description: str | None = None
 
 
 class AddStepRequest(BaseModel):
@@ -45,7 +46,7 @@ class CompleteStepRequest(BaseModel):
 
 
 class GenerateRoutineRequest(BaseModel):
-    period: Literal["am", "pm", "both"] = "both"
+    period: str = "both"
     routine_type: Literal["essential", "complete", "glass_skin", "barrier_repair", "anti_acne", "auto"] = "auto"
     goals: list[str] | None = None
     avoid_products: list[int] | None = None
@@ -55,7 +56,7 @@ class GenerateRoutineRequest(BaseModel):
 
 class ValidateRoutineRequest(BaseModel):
     steps: list[AddStepRequest]
-    period: Literal["am", "pm"]
+    period: str
 
 
 # ── Output schemas ────────────────────────────────────────────────────────────
@@ -82,6 +83,7 @@ class StepOut(BaseModel):
 class RoutineOut(BaseModel):
     id: UUID
     name: str | None = None
+    description: str | None = None
     period: str
     routine_type: str
     is_active: bool

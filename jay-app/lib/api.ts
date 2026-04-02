@@ -61,7 +61,8 @@ export async function apiFetch<T = unknown>(
       throw new Error(error.detail || `API error ${res.status}`);
     }
 
-    return res.json();
+    const text = await res.text();
+    return (text ? JSON.parse(text) : null) as T;
   } catch (err) {
     clearTimeout(timeoutId);
     if (err instanceof Error && err.name === 'AbortError') {

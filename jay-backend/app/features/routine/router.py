@@ -81,7 +81,7 @@ async def validate_routine_endpoint(data: ValidateRoutineRequest, user: Authenti
 # ROOT ROUTES (GET/POST with no path params)
 # ══════════════════════════════════════════════════════════════════════════════
 
-@router.get("", response_model=RoutineOverview)
+@router.get("", response_model=list[RoutineOut])
 async def get_active_routines(user: AuthenticatedUser, db: DbSession):
     return await service.get_active_routines(user, db)
 
@@ -90,7 +90,7 @@ async def get_active_routines(user: AuthenticatedUser, db: DbSession):
 async def create_routine(data: CreateRoutineRequest, user: AuthenticatedUser, db: DbSession):
     routine = await service.create_routine(user, data, db)
     return RoutineOut(
-        id=routine.id, name=routine.name, period=routine.period,
+        id=routine.id, name=routine.name, description=routine.description, period=routine.period,
         routine_type=routine.routine_type, is_active=routine.is_active,
         total_monthly_cost=None, steps=[],
         created_at=routine.created_at, updated_at=routine.updated_at,

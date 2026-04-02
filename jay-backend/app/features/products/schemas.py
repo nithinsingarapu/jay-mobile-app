@@ -21,6 +21,16 @@ class ProductOut(BaseModel):
     image_url: str | None = None
     product_url: str | None = None
     formulation: dict | None = None
+    brand_tier: str | None = None
+    normalized_category: str | None = None
+    department: str | None = None
+    rating: float | None = None
+    review_count: int | None = None
+    buy_url: str | None = None
+    image_urls: list[str] | None = None
+    price_source: str | None = None
+    price_updated_at: datetime | None = None
+    serp_enriched_at: datetime | None = None
     is_available: bool
     created_at: datetime
     updated_at: datetime

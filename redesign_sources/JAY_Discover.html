@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>JAY — Discover</title>
+<style>
+:root{--bg:#000;--c1:#1C1C1E;--c2:#2C2C2E;--c3:#3A3A3C;--c4:#48484A;--w:#fff;--ls:rgba(235,235,245,.6);--lt:rgba(235,235,245,.3);--lq:rgba(235,235,245,.18);--blue:#0A84FF;--green:#30D158;--orange:#FF9F0A;--red:#FF453A;--indigo:#5E5CE6;--purple:#BF5AF2;--teal:#64D2FF;--yellow:#FFD60A;--mint:#63E6E2;--fp:rgba(120,120,128,.36);--ft:rgba(120,120,128,.24);--fq:rgba(120,120,128,.18);--sep:rgba(84,84,88,.65);--r:10px}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text',system-ui,sans-serif;background:#000;display:flex;justify-content:center;align-items:center;min-height:100vh}
+.D{width:393px;height:852px;background:var(--bg);position:relative;overflow:hidden;border-radius:48px;border:4px solid #1a1a1a;box-shadow:0 0 0 2px #333,0 40px 100px rgba(0,0,0,.6)}
+.SB{height:59px;display:flex;justify-content:space-between;align-items:flex-end;padding:0 32px 8px;position:absolute;top:0;left:0;right:0;z-index:300;pointer-events:none}
+.SB span{font-size:15px;font-weight:600;color:var(--w)}
+.V{position:absolute;inset:0;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;display:none;padding-bottom:90px}
+.V::-webkit-scrollbar{display:none}
+.V.on{display:block}
+.TB{position:absolute;bottom:0;left:0;right:0;z-index:200;height:83px;display:flex;justify-content:space-around;align-items:flex-start;padding-top:6px;transition:transform .25s}
+.TB::before{content:'';position:absolute;inset:0;background:rgba(28,28,30,.82);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-top:.33px solid var(--sep)}
+.TB.off{transform:translateY(100%)}
+.ti{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;min-width:64px;position:relative;z-index:1}
+.ti svg{width:22px;height:22px;stroke:var(--lt);fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;transition:.15s}
+.ti em{font-style:normal;font-size:10px;font-weight:500;color:var(--lt);transition:.15s}
+.ti.a svg{stroke:var(--blue)}.ti.a em{color:var(--blue)}
+.NB{height:44px;display:flex;align-items:center;padding:0 16px;position:sticky;top:59px;z-index:50;background:rgba(0,0,0,.82);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px)}
+.NB .bk{display:flex;align-items:center;gap:2px;cursor:pointer;color:var(--blue);font-size:17px;letter-spacing:-.41px}
+.NB .bk svg{width:12px;height:21px;stroke:var(--blue);fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.NB .nt{position:absolute;left:50%;transform:translateX(-50%);font-size:17px;font-weight:600;color:var(--w);letter-spacing:-.41px}
+.NB .nr{margin-left:auto;display:flex;gap:14px;align-items:center}
+/* Search */
+.SB2{margin:8px 16px;padding:8px 10px;background:var(--ft);border-radius:var(--r);display:flex;align-items:center;gap:7px;cursor:pointer}
+.SB2 svg{width:17px;height:17px;stroke:var(--lt);fill:none;stroke-width:1.5;flex-shrink:0}
+.SB2 span{font-size:17px;color:var(--lt);letter-spacing:-.41px}
+/* Filter chips */
+.FC{display:flex;gap:8px;overflow-x:auto;padding:8px 16px;scrollbar-width:none}
+.FC::-webkit-scrollbar{display:none}
+.FC div{padding:7px 14px;border-radius:8px;font-size:15px;font-weight:500;white-space:nowrap;cursor:pointer;background:var(--ft);color:var(--w);transition:.15s;letter-spacing:-.24px}
+.FC div.a{background:var(--blue);color:#fff}
+/* Category card */
+.CC{border-radius:14px;padding:18px 14px;text-align:center;cursor:pointer;position:relative;overflow:hidden;transition:transform .15s}
+.CC:active{transform:scale(.96)}
+.CC .cc-icon{font-size:26px;margin-bottom:8px}
+.CC .cc-name{font-size:13px;font-weight:600;color:var(--w);letter-spacing:-.08px}
+.CC .cc-count{font-size:11px;color:var(--ls);margin-top:2px}
+/* Product card */
+.PC{background:var(--c1);border-radius:14px;overflow:hidden;cursor:pointer;transition:transform .15s}
+.PC:active{transform:scale(.97)}
+.PC .th{height:150px;position:relative;display:flex;align-items:flex-end;padding:10px}
+.PC .th .match-badge{position:absolute;top:10px;right:10px;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(10,132,255,.85);color:#fff;backdrop-filter:blur(8px)}
+.PC .bd{padding:12px 14px 14px}
+.PC .p-name{font-size:14px;font-weight:500;color:var(--w);letter-spacing:-.08px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.PC .p-brand{font-size:12px;color:var(--ls);margin-top:3px}
+.PC .p-row{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+.PC .p-price{font-size:16px;font-weight:700;color:var(--w)}
+.PC .p-rating{display:flex;align-items:center;gap:3px;font-size:12px;color:var(--ls)}
+.PC .p-rating .star{color:var(--yellow);font-size:11px}
+/* Grouped */
+.GC{background:var(--c1);border-radius:var(--r);margin:0 16px;overflow:hidden}
+.GR{display:flex;align-items:center;padding:12px 16px;min-height:44px;position:relative;cursor:pointer;transition:background .15s}
+.GR:active{background:rgba(255,255,255,.04)}
+.GR:not(:last-child)::after{content:'';position:absolute;bottom:0;left:16px;right:0;height:.33px;background:var(--sep)}
+.SH{padding:28px 32px 8px;font-size:13px;color:var(--ls);text-transform:uppercase;letter-spacing:-.08px}
+.SHr{display:flex;justify-content:space-between;align-items:center;padding:28px 16px 8px 32px}
+.SHr span:first-child{font-size:13px;color:var(--ls);text-transform:uppercase;letter-spacing:-.08px}
+.SHr a{font-size:15px;color:var(--blue);cursor:pointer;text-decoration:none}
+/* Widget */
+.W{background:var(--c1);border-radius:16px;padding:16px;position:relative;overflow:hidden}
+/* Button */
+.BTN{display:block;width:100%;padding:15px;border-radius:14px;text-align:center;font-size:17px;font-weight:600;letter-spacing:-.41px;cursor:pointer;border:none;font-family:inherit;transition:opacity .15s,transform .15s}
+.BTN:active{opacity:.85;transform:scale(.98)}
+.BTN.p{background:var(--blue);color:#fff}
+.BTN.s{background:var(--c1);color:var(--w)}
+/* Badge */
+.BP{display:inline-flex;align-items:center;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600}
+/* Product detail tab nav */
+.PT{display:flex;gap:0;overflow-x:auto;padding:0 16px;border-bottom:.33px solid var(--sep);scrollbar-width:none}
+.PT::-webkit-scrollbar{display:none}
+.PT div{padding:10px 16px;font-size:15px;font-weight:500;color:var(--ls);white-space:nowrap;cursor:pointer;position:relative;letter-spacing:-.24px;transition:.15s}
+.PT div.a{color:var(--w)}
+.PT div.a::after{content:'';position:absolute;bottom:-.33px;left:8px;right:8px;height:2px;background:var(--blue);border-radius:1px}
+/* Score banner */
+.score-banner{display:flex;justify-content:space-around;padding:16px 0;margin:12px 16px;background:var(--c1);border-radius:14px}
+.score-banner .sb-item{text-align:center;flex:1;position:relative}
+.score-banner .sb-item:not(:last-child)::after{content:'';position:absolute;right:0;top:4px;bottom:4px;width:.33px;background:var(--sep)}
+.score-banner .sb-val{font-size:24px;font-weight:700;color:var(--w);letter-spacing:-.5px}
+.score-banner .sb-val span{font-size:14px;color:var(--lt)}
+.score-banner .sb-lbl{font-size:10px;color:var(--ls);text-transform:uppercase;letter-spacing:.8px;margin-top:3px}
+/* Report card */
+.rp-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px}
+.rp-cell{background:var(--c1);border-radius:12px;padding:14px}
+.rp-cell .rp-val{font-size:24px;font-weight:700;color:var(--w);letter-spacing:-.5px}
+.rp-cell .rp-val span{font-size:13px;color:var(--lt)}
+.rp-cell .rp-lbl{font-size:11px;color:var(--ls);text-transform:uppercase;letter-spacing:.5px;margin-top:3px}
+.rp-cell .rp-bar{height:3px;background:var(--c3);border-radius:2px;margin-top:10px;overflow:hidden}
+.rp-cell .rp-bar div{height:100%;background:var(--w);border-radius:2px}
+/* Ingredient card */
+.ing-card{background:var(--c1);border-radius:12px;padding:14px;margin-bottom:8px}
+/* Derm card */
+.derm-card{background:var(--c1);border-radius:12px;padding:14px;margin:0 16px 8px}
+/* Alt card */
+.alt-card{background:var(--c1);border-radius:12px;padding:16px;margin:0 16px 10px}
+/* Animations */
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.fi{animation:slideUp .4s cubic-bezier(.25,.1,.25,1) both}
+.d1{animation-delay:.04s}.d2{animation-delay:.08s}.d3{animation-delay:.12s}.d4{animation-delay:.16s}.d5{animation-delay:.2s}.d6{animation-delay:.24s}
+</style>
+</head>
+<body>
+<div class="D">
+<div class="SB"><span>9:41</span><span style="display:flex;gap:5px"><svg width="17" height="12" viewBox="0 0 17 12"><path d="M1 4A7 7 0 018.5 0 7 7 0 0116 4" stroke="rgba(255,255,255,.4)" stroke-width="1.2" fill="none"/><path d="M3.5 7A4 4 0 018.5 4a4 4 0 015 3" stroke="rgba(255,255,255,.5)" fill="none" stroke-width="1.2"/><circle cx="8.5" cy="10" r="1.5" fill="#fff"/></svg><svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="1" width="15" height="10" rx="2" stroke="rgba(255,255,255,.35)" fill="none" stroke-width=".8"/><rect x="16" y="3.5" width="1.5" height="5" rx=".5" fill="rgba(255,255,255,.35)"/><rect x="1" y="2" width="10.5" height="8" rx="1.2" fill="var(--green)"/></svg></span></div>
+
+<!-- ============================= -->
+<!-- BROWSE -->
+<!-- ============================= -->
+<div class="V on" id="root">
+<div style="padding-top:59px">
+<div style="font-size:34px;font-weight:700;letter-spacing:.37px;color:var(--w);padding:8px 20px 0" class="fi">Discover</div>
+
+<!-- Search bar -->
+<div class="SB2 fi d1" onclick="push('search')">
+<svg viewBox="0 0 24 24" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+<span>Products, ingredients, brands...</span>
+</div>
+
+<!-- Filter chips -->
+<div class="FC fi d2" id="filters">
+<div class="a" onclick="filt(this)">All</div>
+<div onclick="filt(this)">Cleansers</div>
+<div onclick="filt(this)">Serums</div>
+<div onclick="filt(this)">Moisturizers</div>
+<div onclick="filt(this)">Sunscreen</div>
+<div onclick="filt(this)">Toners</div>
+<div onclick="filt(this)">Treatments</div>
+<div onclick="filt(this)">Eye Care</div>
+</div>
+
+<!-- Categories -->
+<div class="SHr fi d3"><span>Categories</span><a>See All</a></div>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 16px;margin-bottom:4px" class="fi d3">
+<div class="CC" style="background:linear-gradient(135deg,rgba(242,112,89,.12),rgba(242,112,89,.04));border:1px solid rgba(242,112,89,.08)"><div class="cc-icon">🧴</div><div class="cc-name">Cleansers</div><div class="cc-count">124 products</div></div>
+<div class="CC" style="background:linear-gradient(135deg,rgba(10,132,255,.12),rgba(10,132,255,.04));border:1px solid rgba(10,132,255,.08)"><div class="cc-icon">💧</div><div class="cc-name">Serums</div><div class="cc-count">89 products</div></div>
+<div class="CC" style="background:linear-gradient(135deg,rgba(48,209,88,.12),rgba(48,209,88,.04));border:1px solid rgba(48,209,88,.08)"><div class="cc-icon">🧊</div><div class="cc-name">Moisturizers</div><div class="cc-count">97 products</div></div>
+<div class="CC" style="background:linear-gradient(135deg,rgba(255,214,10,.12),rgba(255,214,10,.04));border:1px solid rgba(255,214,10,.08)"><div class="cc-icon">☀️</div><div class="cc-name">Sunscreen</div><div class="cc-count">67 products</div></div>
+<div class="CC" style="background:linear-gradient(135deg,rgba(94,92,230,.12),rgba(94,92,230,.04));border:1px solid rgba(94,92,230,.08)"><div class="cc-icon">🧪</div><div class="cc-name">Treatments</div><div class="cc-count">53 products</div></div>
+<div class="CC" style="background:linear-gradient(135deg,rgba(191,90,242,.12),rgba(191,90,242,.04));border:1px solid rgba(191,90,242,.08)"><div class="cc-icon">✨</div><div class="cc-name">Toners</div><div class="cc-count">41 products</div></div>
+</div>
+
+<!-- Trending brands -->
+<div class="SHr fi d4"><span>Popular brands</span><a>See All</a></div>
+<div style="display:flex;gap:12px;overflow-x:auto;padding:0 16px;scrollbar-width:none;margin-bottom:8px" class="fi d4">
+<div style="min-width:80px;text-align:center;cursor:pointer"><div style="width:60px;height:60px;border-radius:50%;background:var(--c1);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:11px;font-weight:700;color:var(--w);letter-spacing:-.2px">MIN</div><div style="font-size:11px;color:var(--ls)">Minimalist</div></div>
+<div style="min-width:80px;text-align:center;cursor:pointer"><div style="width:60px;height:60px;border-radius:50%;background:var(--c1);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:11px;font-weight:700;color:var(--w);letter-spacing:-.2px">CV</div><div style="font-size:11px;color:var(--ls)">CeraVe</div></div>
+<div style="min-width:80px;text-align:center;cursor:pointer"><div style="width:60px;height:60px;border-radius:50%;background:var(--c1);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:11px;font-weight:700;color:var(--w);letter-spacing:-.2px">PLM</div><div style="font-size:11px;color:var(--ls)">Plum</div></div>
+<div style="min-width:80px;text-align:center;cursor:pointer"><div style="width:60px;height:60px;border-radius:50%;background:var(--c1);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:11px;font-weight:700;color:var(--w);letter-spacing:-.2px">D&K</div><div style="font-size:11px;color:var(--ls)">Dot & Key</div></div>
+<div style="min-width:80px;text-align:center;cursor:pointer"><div style="width:60px;height:60px;border-radius:50%;background:var(--c1);display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:11px;font-weight:700;color:var(--w);letter-spacing:-.2px">RE</div><div style="font-size:11px;color:var(--ls)">Re'equil</div></div>
+</div>
+
+<!-- Best for your skin -->
+<div class="SHr fi d5"><span>Best for your skin</span><a>See All</a></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px" class="fi d5">
+
+<div class="PC" onclick="push('detail')"><div class="th" style="background:linear-gradient(145deg,#162a3a,#0a1520)"><span class="match-badge">94% match</span></div><div class="bd"><div class="p-name">CeraVe Foaming Facial Cleanser</div><div class="p-brand">CeraVe</div><div class="p-row"><span class="p-price">₹599</span><span class="p-rating"><span class="star">★</span>4.7 <span style="color:var(--lt)">(61K)</span></span></div></div></div>
+
+<div class="PC" onclick="push('detail')"><div class="th" style="background:linear-gradient(145deg,#2a1a20,#1a0a10)"><span class="match-badge">92% match</span></div><div class="bd"><div class="p-name">Minimalist 10% Vitamin C Serum</div><div class="p-brand">Minimalist</div><div class="p-row"><span class="p-price">₹549</span><span class="p-rating"><span class="star">★</span>4.5 <span style="color:var(--lt)">(23K)</span></span></div></div></div>
+
+<div class="PC" onclick="push('detail')"><div class="th" style="background:linear-gradient(145deg,#1a2a20,#0a1a10)"><span class="match-badge">91% match</span></div><div class="bd"><div class="p-name">Minimalist 10% Niacinamide Face Serum</div><div class="p-brand">Minimalist</div><div class="p-row"><span class="p-price">₹349</span><span class="p-rating"><span class="star">★</span>4.4 <span style="color:var(--lt)">(18K)</span></span></div></div></div>
+
+<div class="PC" onclick="push('detail')"><div class="th" style="background:linear-gradient(145deg,#202a2a,#101a1a)"><span class="match-badge">88% match</span></div><div class="bd"><div class="p-name">La Shield Mineral SPF 50 Sunscreen</div><div class="p-brand">La Shield</div><div class="p-row"><span class="p-price">₹499</span><span class="p-rating"><span class="star">★</span>4.3 <span style="color:var(--lt)">(8K)</span></span></div></div></div>
+
+<div class="PC" onclick="push('detail')"><div class="th" style="background:linear-gradient(145deg,#1a1a2a,#0a0a1a)"><span class="match-badge">87% match</span></div><div class="bd"><div class="p-name">Dot & Key Barrier Repair Moisturizer</div><div class="p-brand">Dot & Key</div><div class="p-row"><span class="p-price">₹445</span><span class="p-rating"><span class="star">★</span>4.3 <span style="color:var(--lt)">(12K)</span></span></div></div></div>
+
+<div class="PC" onclick="push('detail')"><div class="th" style="background:linear-gradient(145deg,#2a2a1a,#1a1a0a)"><span class="match-badge">84% match</span></div><div class="bd"><div class="p-name">Plum Green Tea Toner</div><div class="p-brand">Plum</div><div class="p-row"><span class="p-price">₹375</span><span class="p-rating"><span class="star">★</span>4.2 <span style="color:var(--lt)">(9K)</span></span></div></div></div>
+</div>
+
+</div></div>
+
+<!-- ============================= -->
+<!-- SEARCH -->
+<!-- ============================= -->
+<div class="V" id="v-search">
+<div style="padding-top:59px">
+<div style="display:flex;align-items:center;gap:8px;padding:8px 16px">
+<div style="flex:1;display:flex;align-items:center;gap:7px;padding:8px 10px;background:var(--ft);border-radius:var(--r)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--lt)" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><input style="flex:1;background:none;border:none;outline:none;font-size:17px;color:var(--w);font-family:inherit;letter-spacing:-.41px" placeholder="Search..." autofocus></div>
+<span style="font-size:17px;color:var(--blue);cursor:pointer" onclick="pop()">Cancel</span>
+</div>
+
+<div class="SH" style="padding-top:16px">Recent searches</div>
+<div class="GC" style="margin-bottom:16px">
+<div class="GR"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--lt)" stroke-width="1.5" stroke-linecap="round" style="margin-right:12px;flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span style="font-size:17px;color:var(--w);flex:1">vitamin c serum</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--lt)" stroke-width="1.5" stroke-linecap="round" style="flex-shrink:0"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+<div class="GR"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--lt)" stroke-width="1.5" stroke-linecap="round" style="margin-right:12px;flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span style="font-size:17px;color:var(--w);flex:1">niacinamide</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--lt)" stroke-width="1.5" stroke-linecap="round" style="flex-shrink:0"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+<div class="GR"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--lt)" stroke-width="1.5" stroke-linecap="round" style="margin-right:12px;flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span style="font-size:17px;color:var(--w);flex:1">sunscreen oily skin</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--lt)" stroke-width="1.5" stroke-linecap="round" style="flex-shrink:0"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+</div>
+
+<div class="SH">Trending</div>
+<div class="GC">
+<div class="GR" onclick="pop();push('detail')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="1.5" stroke-linecap="round" style="margin-right:12px;flex-shrink:0"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg><span style="font-size:17px;color:var(--w);flex:1">Minimalist SPF 50</span><span style="font-size:13px;color:var(--lt)">Sunscreen</span></div>
+<div class="GR" onclick="pop();push('detail')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="1.5" stroke-linecap="round" style="margin-right:12px;flex-shrink:0"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg><span style="font-size:17px;color:var(--w);flex:1">Cetaphil Gentle Cleanser</span><span style="font-size:13px;color:var(--lt)">Cleanser</span></div>
+<div class="GR" onclick="pop();push('detail')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="1.5" stroke-linecap="round" style="margin-right:12px;flex-shrink:0"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg><span style="font-size:17px;color:var(--w);flex:1">The Derma Co Retinol</span><span style="font-size:13px;color:var(--lt)">Treatment</span></div>
+</div>
+</div></div>
+
+<!-- ============================= -->
+<!-- PRODUCT DETAIL -->
+<!-- ============================= -->
+<div class="V" id="v-detail">
+<div style="padding-top:59px">
+<div class="NB"><div class="bk" onclick="pop()"><svg viewBox="0 0 12 21"><path d="M10.5 1L1.5 10.5 10.5 20"/></svg><span>Discover</span></div><div class="nr"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.5" stroke-linecap="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.5" stroke-linecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg></div></div>
+
+<!-- Product hero -->
+<div style="height:220px;background:linear-gradient(145deg,#162a3a,#0a1520);position:relative;display:flex;align-items:center;justify-content:center"><div style="font-size:48px;opacity:.15">🧴</div></div>
+
+<!-- Certification tags -->
+<div style="display:flex;gap:6px;padding:14px 20px 0;flex-wrap:wrap">
+<span class="BP" style="background:var(--ft);color:var(--ls)">Fragrance-Free</span>
+<span class="BP" style="background:var(--ft);color:var(--ls)">Non-Comedogenic</span>
+<span class="BP" style="background:var(--ft);color:var(--ls)">Derm Tested</span>
+<span class="BP" style="background:var(--ft);color:var(--ls)">Paraben-Free</span>
+</div>
+
+<!-- Brand + Name -->
+<div style="padding:14px 20px 0">
+<div style="font-size:12px;font-weight:600;color:var(--ls);text-transform:uppercase;letter-spacing:1.2px">CERAVE · GALDERMA</div>
+<div style="font-size:24px;font-weight:700;color:var(--w);letter-spacing:.35px;margin-top:4px;line-height:1.2">Foaming Facial Cleanser</div>
+</div>
+
+<!-- Meta row -->
+<div style="display:flex;align-items:center;gap:12px;padding:10px 20px">
+<span style="font-size:22px;font-weight:700;color:var(--w)">₹599</span>
+<span style="font-size:13px;color:var(--ls)">236ml</span>
+<span style="font-size:13px;color:var(--w)">★ 4.7</span>
+<span style="font-size:11px;color:var(--lt)">(61K reviews)</span>
+</div>
+
+<!-- Skin type targets -->
+<div style="display:flex;gap:6px;padding:0 20px 12px">
+<span class="BP" style="background:rgba(48,209,88,.1);color:var(--green)">Oily skin</span>
+<span class="BP" style="background:rgba(48,209,88,.1);color:var(--green)">Normal skin</span>
+<span class="BP" style="background:rgba(48,209,88,.1);color:var(--green)">Combination</span>
+</div>
+
+<!-- Score banner -->
+<div class="score-banner">
+<div class="sb-item"><div class="sb-val">9<span>/10</span></div><div class="sb-lbl">JAY Score</div></div>
+<div class="sb-item"><div class="sb-val">10<span>/10</span></div><div class="sb-lbl">Safety</div></div>
+<div class="sb-item"><div class="sb-val">94<span>%</span></div><div class="sb-lbl">Match</div></div>
+</div>
+
+<!-- Tab nav -->
+<div class="PT" id="ptabs">
+<div class="a" onclick="ptab(0)">Overview</div>
+<div onclick="ptab(1)">Ingredients</div>
+<div onclick="ptab(2)">Prices</div>
+<div onclick="ptab(3)">Experts</div>
+<div onclick="ptab(4)">Alternatives</div>
+</div>
+
+<!-- TAB: OVERVIEW -->
+<div id="pt-0">
+<!-- JAY Says -->
+<div class="SH">JAY Says</div>
+<div style="margin:0 16px;padding:14px 14px 14px 18px;background:var(--c1);border-radius:var(--r);border-left:3px solid var(--blue)"><div style="font-size:15px;color:var(--w);font-style:italic;line-height:1.5;letter-spacing:-.24px">"A dermatology staple for a reason — gentle enough for rosacea and eczema, hydrating enough to skip the moisturiser on good days."</div></div>
+
+<!-- Report Card -->
+<div class="SH">Report card</div>
+<div class="rp-grid" style="margin-bottom:8px">
+<div class="rp-cell"><div class="rp-val">9<span>/10</span></div><div class="rp-lbl">Ingredient Quality</div><div class="rp-bar"><div style="width:90%"></div></div></div>
+<div class="rp-cell"><div class="rp-val">10<span>/10</span></div><div class="rp-lbl">Formula Safety</div><div class="rp-bar"><div style="width:100%"></div></div></div>
+<div class="rp-cell"><div class="rp-val">9<span>/10</span></div><div class="rp-lbl">Value for Money</div><div class="rp-bar"><div style="width:90%"></div></div></div>
+<div class="rp-cell"><div class="rp-val">8<span>/10</span></div><div class="rp-lbl">Brand Transparency</div><div class="rp-bar"><div style="width:80%"></div></div></div>
+<div class="rp-cell"><div class="rp-val">9<span>/10</span></div><div class="rp-lbl">User Satisfaction</div><div class="rp-bar"><div style="width:90%"></div></div></div>
+<div class="rp-cell"><div class="rp-val">10<span>/10</span></div><div class="rp-lbl">Derm Endorsed</div><div class="rp-bar"><div style="width:100%"></div></div></div>
+</div>
+
+<!-- Why JAY Recommends -->
+<div class="SH">Why JAY recommends</div>
+<div class="GC" style="margin-bottom:8px">
+<div class="GR" style="padding:10px 16px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" style="margin-right:10px;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg><span style="font-size:15px;color:var(--w);flex:1;letter-spacing:-.24px;line-height:1.4">Clinically proven non-stripping — safe alongside retinol, AHAs, BHAs</span></div>
+<div class="GR" style="padding:10px 16px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" style="margin-right:10px;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg><span style="font-size:15px;color:var(--w);flex:1;letter-spacing:-.24px;line-height:1.4">Triple humectant complex (Glycerin + Panthenol + Pantolactone)</span></div>
+<div class="GR" style="padding:10px 16px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" style="margin-right:10px;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg><span style="font-size:15px;color:var(--w);flex:1;letter-spacing:-.24px;line-height:1.4">Niacinamide repairs barrier, reduces redness & pigmentation</span></div>
+<div class="GR" style="padding:10px 16px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" style="margin-right:10px;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg><span style="font-size:15px;color:var(--w);flex:1;letter-spacing:-.24px;line-height:1.4">Mildest surfactant class — Sodium Cocoyl Isethionate (no SLS)</span></div>
+</div>
+
+<!-- Things to Know -->
+<div class="SH">Things to know</div>
+<div class="GC" style="margin-bottom:8px">
+<div class="GR" style="padding:10px 16px"><span style="font-size:15px;color:var(--green);margin-right:10px;flex-shrink:0;font-weight:600">+</span><span style="font-size:15px;color:var(--w);flex:1;letter-spacing:-.24px;line-height:1.4">Suitable for rosacea, eczema, and acne-prone skin on actives</span></div>
+<div class="GR" style="padding:10px 16px"><span style="font-size:15px;color:var(--green);margin-right:10px;flex-shrink:0;font-weight:600">+</span><span style="font-size:15px;color:var(--w);flex:1;letter-spacing:-.24px;line-height:1.4">Multi-use: body wash, baby cleanser, light makeup remover</span></div>
+<div class="GR" style="padding:10px 16px"><span style="font-size:15px;color:var(--orange);margin-right:10px;flex-shrink:0;font-weight:600">–</span><span style="font-size:15px;color:var(--ls);flex:1;letter-spacing:-.24px;line-height:1.4">Doesn't foam — may not feel "clean enough" for oily skin</span></div>
+<div class="GR" style="padding:10px 16px"><span style="font-size:15px;color:var(--orange);margin-right:10px;flex-shrink:0;font-weight:600">–</span><span style="font-size:15px;color:var(--ls);flex:1;letter-spacing:-.24px;line-height:1.4">Not enough for heavy makeup — double cleanse required</span></div>
+</div>
+
+<!-- Actions -->
+<div style="display:flex;gap:10px;padding:24px 16px"><div class="BTN p" style="flex:1">Add to Routine</div><div class="BTN s" style="flex:1">Full Research</div></div>
+</div>
+
+<!-- TAB: INGREDIENTS -->
+<div id="pt-1" style="display:none">
+<div style="text-align:center;padding:24px 20px 8px"><div style="font-size:36px;font-weight:700;color:var(--w);letter-spacing:-1px">8<span style="font-size:18px;color:var(--lt)">/10</span></div><div style="font-size:13px;color:var(--ls);margin-top:4px">Formula richness score</div><div style="font-size:13px;color:var(--lt);margin-top:8px;line-height:1.38;padding:0 16px">Well-engineered for its target — mild surfactant, triple humectant, genuine actives.</div></div>
+
+<div class="SH">Full INCI list</div>
+<div style="margin:0 16px;padding:12px;background:var(--c1);border-radius:var(--r);font-size:13px;color:var(--ls);line-height:1.8;letter-spacing:-.08px;margin-bottom:8px">Aqua, <span style="color:var(--green)">Glycerin</span>, Cetearyl Alcohol, <span style="color:var(--green)">Panthenol</span>, <span style="color:var(--green)">Niacinamide</span>, Pantolactone, Xanthan Gum, <span style="color:var(--teal)">Sodium Cocoyl Isethionate</span>, Sodium Benzoate, Citric Acid</div>
+<div style="display:flex;gap:8px;padding:0 16px 12px;flex-wrap:wrap"><span class="BP" style="background:rgba(48,209,88,.1);color:var(--green);font-size:10px">Green = beneficial for you</span><span class="BP" style="background:rgba(100,210,255,.1);color:var(--teal);font-size:10px">Blue = functional</span></div>
+
+<div class="SH">Key ingredients</div>
+<div style="padding:0 16px">
+<div class="ing-card"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="font-size:15px;font-weight:600;color:var(--w)">Glycerin</div><span class="BP" style="background:rgba(48,209,88,.12);color:var(--green)">Efficacious</span></div><div style="font-size:12px;color:var(--lt);margin-top:2px">~5-10% concentration</div><div style="font-size:13px;color:var(--ls);margin-top:8px;line-height:1.4">Humectant — draws moisture into skin, supports epidermal barrier function.</div></div>
+
+<div class="ing-card"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="font-size:15px;font-weight:600;color:var(--w)">Niacinamide</div><span class="BP" style="background:rgba(48,209,88,.12);color:var(--green)">Efficacious</span></div><div style="font-size:12px;color:var(--lt);margin-top:2px">~0.5-2% concentration</div><div style="font-size:13px;color:var(--ls);margin-top:8px;line-height:1.4">Barrier repair, TEWL reduction, anti-inflammatory. Reduces redness and hyperpigmentation.</div></div>
+
+<div class="ing-card"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="font-size:15px;font-weight:600;color:var(--w)">Panthenol</div><span class="BP" style="background:rgba(48,209,88,.12);color:var(--green)">Efficacious</span></div><div style="font-size:12px;color:var(--lt);margin-top:2px">~1-3% concentration</div><div style="font-size:13px;color:var(--ls);margin-top:8px;line-height:1.4">Pro-vitamin B5 — humectant and barrier repair agent. Reduces redness.</div></div>
+
+<div class="ing-card"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="font-size:15px;font-weight:600;color:var(--w)">Sodium Cocoyl Isethionate</div><span class="BP" style="background:rgba(100,210,255,.12);color:var(--teal)">Functional</span></div><div style="font-size:12px;color:var(--lt);margin-top:2px">~5-15% concentration</div><div style="font-size:13px;color:var(--ls);margin-top:8px;line-height:1.4">Mildest surfactant class — gentle cleansing without stripping. Coconut-derived, no SLS/SLES.</div></div>
+</div>
+
+<div class="SH">Safety flags</div>
+<div class="GC" style="margin-bottom:16px">
+<div class="GR" style="padding:10px 16px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" style="margin-right:10px;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg><span style="font-size:15px;color:var(--w);flex:1">pH Incompatibilities</span><span style="font-size:13px;color:var(--green)">None</span></div>
+<div class="GR" style="padding:10px 16px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" style="margin-right:10px;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg><span style="font-size:15px;color:var(--w);flex:1">Comedogenicity</span><span style="font-size:13px;color:var(--green)">Very Low</span></div>
+<div class="GR" style="padding:10px 16px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" style="margin-right:10px;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg><span style="font-size:15px;color:var(--w);flex:1">Pregnancy Safe</span><span style="font-size:13px;color:var(--green)">Yes</span></div>
+</div>
+</div>
+
+<!-- TAB: PRICES -->
+<div id="pt-2" style="display:none">
+<div style="margin:16px;padding:18px;background:var(--c1);border-radius:14px"><div style="font-size:10px;font-weight:600;color:var(--ls);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Best value pick</div><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:28px;font-weight:700;color:var(--w)">₹599</div><div style="font-size:13px;color:var(--ls);margin-top:2px">236ml · Amazon</div></div><div class="BTN p" style="width:auto;padding:10px 20px;font-size:15px">Shop Now</div></div></div>
+
+<div class="SH">All sizes</div>
+<div class="GC" style="margin-bottom:16px">
+<div class="GR"><span style="font-size:15px;color:var(--w);flex:1">88ml</span><span style="font-size:13px;color:var(--ls);margin-right:8px">Amazon</span><span style="font-size:15px;font-weight:700;color:var(--w)">₹299</span></div>
+<div class="GR" style="background:rgba(10,132,255,.04)"><span style="font-size:15px;color:var(--blue);flex:1;font-weight:600">236ml</span><span class="BP" style="background:rgba(10,132,255,.12);color:var(--blue);margin-right:8px;font-size:10px">Best Value</span><span style="font-size:15px;font-weight:700;color:var(--w)">₹599</span></div>
+<div class="GR"><span style="font-size:15px;color:var(--w);flex:1">473ml</span><span style="font-size:13px;color:var(--ls);margin-right:8px">Amazon</span><span style="font-size:15px;font-weight:700;color:var(--w)">₹999</span></div>
+</div>
+
+<div class="SH">Price history</div>
+<div style="margin:0 16px;padding:16px;background:var(--c1);border-radius:14px;text-align:center"><div style="font-size:13px;color:var(--ls);margin-bottom:8px">Last 6 months (236ml)</div><div style="height:80px;display:flex;align-items:flex-end;justify-content:space-around;gap:4px;padding:0 8px">
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:100%;height:60px;background:var(--c3);border-radius:3px 3px 0 0"></div><span style="font-size:9px;color:var(--lt)">Oct</span></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:100%;height:55px;background:var(--c3);border-radius:3px 3px 0 0"></div><span style="font-size:9px;color:var(--lt)">Nov</span></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:100%;height:65px;background:var(--c3);border-radius:3px 3px 0 0"></div><span style="font-size:9px;color:var(--lt)">Dec</span></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:100%;height:50px;background:var(--c3);border-radius:3px 3px 0 0"></div><span style="font-size:9px;color:var(--lt)">Jan</span></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:100%;height:58px;background:var(--c3);border-radius:3px 3px 0 0"></div><span style="font-size:9px;color:var(--lt)">Feb</span></div>
+<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px"><div style="width:100%;height:55px;background:var(--blue);border-radius:3px 3px 0 0"></div><span style="font-size:9px;color:var(--blue)">Now</span></div>
+</div><div style="font-size:12px;color:var(--ls);margin-top:12px">Stable — ₹549-₹649 range</div></div>
+</div>
+
+<!-- TAB: EXPERTS -->
+<div id="pt-3" style="display:none">
+<div class="SH">Dermatologist opinions</div>
+<div class="derm-card"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px"><div><div style="font-size:15px;font-weight:600;color:var(--w)">Dr. Dray</div><div style="font-size:12px;color:var(--ls);margin-top:2px">MD, FAAD · YouTube</div></div><span class="BP" style="background:rgba(48,209,88,.12);color:var(--green)">Positive</span></div><div style="font-size:13px;color:var(--ls);font-style:italic;line-height:1.4">"Highly recommends for dry/sensitive/irritated skin; double-cleanse needed for waterproof SPF."</div></div>
+
+<div class="derm-card"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px"><div><div style="font-size:15px;font-weight:600;color:var(--w)">Dr. Somji</div><div style="font-size:12px;color:var(--ls);margin-top:2px">Dermatologist · YouTube</div></div><span class="BP" style="background:rgba(48,209,88,.12);color:var(--green)">Positive</span></div><div style="font-size:13px;color:var(--ls);font-style:italic;line-height:1.4">"Big favourite. Niacinamide for barrier repair. Defends against 5 signs of sensitivity."</div></div>
+
+<div class="derm-card"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px"><div><div style="font-size:15px;font-weight:600;color:var(--w)">James Welsh</div><div style="font-size:12px;color:var(--ls);margin-top:2px">Reviewer · YouTube</div></div><span class="BP" style="background:rgba(255,159,10,.12);color:var(--orange)">Mixed</span></div><div style="font-size:13px;color:var(--ls);font-style:italic;line-height:1.4">"Initially positive; later found it over-cleansing for dehydrated skin after extended use."</div></div>
+
+<div class="SH">Clinical evidence</div>
+<div style="padding:0 16px">
+<div class="ing-card"><div style="font-size:14px;font-weight:600;color:var(--w)">Rosacea Skin Barrier Study</div><div style="font-size:12px;color:var(--lt);margin-top:2px">Draelos, 2006 · Cutis</div><div style="font-size:13px;color:var(--ls);margin-top:8px;line-height:1.4">No increase in TEWL vs Dove bar. Significant rosacea severity reduction.</div><span class="BP" style="background:var(--ft);color:var(--ls);margin-top:8px;font-size:10px">Independent</span></div>
+<div class="ing-card"><div style="font-size:14px;font-weight:600;color:var(--w)">48-Hour Hydration Study</div><div style="font-size:12px;color:var(--lt);margin-top:2px">2025 · J. Clinical and Aesthetic Dermatology</div><div style="font-size:13px;color:var(--ls);margin-top:8px;line-height:1.4">28% less water loss with Cetaphil users. Glycerin maintains hydration through micellar cleanse.</div><span class="BP" style="background:var(--ft);color:var(--ls);margin-top:8px;font-size:10px">Brand-associated</span></div>
+</div>
+</div>
+
+<!-- TAB: ALTERNATIVES -->
+<div id="pt-4" style="display:none">
+<div style="padding:16px 20px;font-size:15px;color:var(--ls);line-height:1.47;letter-spacing:-.24px">CeraVe is excellent for its target. Consider these only if you need better makeup removal or prefer a foaming cleanse.</div>
+
+<div class="alt-card"><div style="font-size:10px;font-weight:600;color:var(--ls);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">For more effective makeup removal</div><div style="font-size:17px;font-weight:600;color:var(--w);letter-spacing:-.41px">La Roche-Posay Toleriane</div><div style="font-size:13px;color:var(--ls);margin-top:2px">~₹1,299 / 400ml · Cheaper per ml</div><div style="padding:10px 0 0"><div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:4px"><span style="color:var(--green);font-size:13px;font-weight:600">+</span><span style="font-size:13px;color:var(--w);line-height:1.38">Ceramide-3 for enhanced barrier repair</span></div><div style="display:flex;align-items:flex-start;gap:6px"><span style="color:var(--green);font-size:13px;font-weight:600">+</span><span style="font-size:13px;color:var(--w);line-height:1.38">More effective on light makeup</span></div></div><div style="font-size:12px;color:var(--lt);font-style:italic;margin-top:8px">Trade-off: Similar non-foaming texture. Higher bottle price.</div></div>
+
+<div class="alt-card"><div style="font-size:10px;font-weight:600;color:var(--ls);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">For a gentle foaming cleanse</div><div style="font-size:17px;font-weight:600;color:var(--w);letter-spacing:-.41px">CeraVe Cream-to-Foam</div><div style="font-size:13px;color:var(--ls);margin-top:2px">~₹899 / 473ml · Cheaper per ml</div><div style="padding:10px 0 0"><div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:4px"><span style="color:var(--green);font-size:13px;font-weight:600">+</span><span style="font-size:13px;color:var(--w);line-height:1.38">Foam experience Cetaphil lacks</span></div><div style="display:flex;align-items:flex-start;gap:6px"><span style="color:var(--green);font-size:13px;font-weight:600">+</span><span style="font-size:13px;color:var(--w);line-height:1.38">3 ceramides + hyaluronic acid + amino acids</span></div></div><div style="font-size:12px;color:var(--lt);font-style:italic;margin-top:8px">Trade-off: Slightly less rich for extremely dry skin.</div></div>
+
+<div class="alt-card"><div style="font-size:10px;font-weight:600;color:var(--ls);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Clinically superior minimalist formula</div><div style="font-size:17px;font-weight:600;color:var(--w);letter-spacing:-.41px">Vanicream Gentle Cleanser</div><div style="font-size:13px;color:var(--ls);margin-top:2px">~₹749 / 236ml</div><div style="padding:10px 0 0"><div style="display:flex;align-items:flex-start;gap:6px;margin-bottom:4px"><span style="color:var(--green);font-size:13px;font-weight:600">+</span><span style="font-size:13px;color:var(--w);line-height:1.38">Further "free-from" list than Cetaphil</span></div><div style="display:flex;align-items:flex-start;gap:6px"><span style="color:var(--green);font-size:13px;font-weight:600">+</span><span style="font-size:13px;color:var(--w);line-height:1.38">Ideal for severe eczema, contact dermatitis</span></div></div><div style="font-size:12px;color:var(--lt);font-style:italic;margin-top:8px">Trade-off: No Niacinamide or Panthenol — fewer active benefits.</div></div>
+</div>
+
+</div></div>
+
+<!-- ============================= -->
+<!-- TAB BAR -->
+<!-- ============================= -->
+<div class="TB" id="tb">
+<div class="ti"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><em>Summary</em></div>
+<div class="ti"><svg viewBox="0 0 24 24"><path d="M5 3v4M3 5h4M19 3v4M21 5h-4M5 17v4M3 19h4M19 17v4M21 19h-4"/><circle cx="12" cy="12" r="4"/></svg><em>Scan</em></div>
+<div class="ti a"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><em>Discover</em></div>
+<div class="ti"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><em>Routine</em></div>
+<div class="ti"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><em>You</em></div>
+</div>
+
+</div>
+
+<script>
+const stk=[];
+function push(n){const el=document.getElementById('v-'+n);if(el){el.classList.add('on');el.scrollTop=0;stk.push('v-'+n);document.getElementById('tb').classList.add('off')}}
+function pop(){if(stk.length){document.getElementById(stk.pop()).classList.remove('on');if(!stk.length)document.getElementById('tb').classList.remove('off')}}
+function filt(el){document.querySelectorAll('#filters div').forEach(d=>d.classList.remove('a'));el.classList.add('a')}
+function ptab(i){for(let j=0;j<5;j++)document.getElementById('pt-'+j).style.display=j===i?'block':'none';document.querySelectorAll('#ptabs div').forEach((d,j)=>{d.classList.toggle('a',j===i)})}
+</script>
+</body>
+</html>

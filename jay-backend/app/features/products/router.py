@@ -2,9 +2,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
+from app.auth import AuthenticatedUser
 from app.shared.exceptions import NotFoundError
 from . import service
 from .schemas import ProductOut
+from .enrichment import enrich_single_product, enrich_bulk
 
 router = APIRouter()
 DbSession = Annotated[AsyncSession, Depends(get_db)]
@@ -28,7 +30,7 @@ async def search_products(
     category: str | None = Query(None),
     min_price: float | None = Query(None),
     max_price: float | None = Query(None),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=1000),
     offset: int = Query(0, ge=0),
 ):
     return await service.search_products(db, q, brand, category, min_price, max_price, limit, offset)
@@ -40,3 +42,11 @@ async def get_product(product_id: int, db: DbSession):
     if not product:
         raise NotFoundError("Product", product_id)
     return product
+
+
+@router.post("/{product_id}/enrich")
+async def enrich_product_endpoint(product_id: int, user: AuthenticatedUser, db: DbSession):
+    from app.database import async_session_factory
+    async with async_session_factory() as fresh_db:
+        result = await enrich_single_product(product_id, fresh_db)
+    return result

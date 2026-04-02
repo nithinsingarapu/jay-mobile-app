@@ -1,65 +1,97 @@
 import { create } from 'zustand';
-import { routineService, type Routine, type TodayStatus, type RoutineStats, type GeneratedRoutine } from '../services/routine';
+import { routineService } from '../services/routine';
+import type {
+  RoutineOut,
+  TodayStatus,
+  StatsOut,
+  CostOut,
+  ConflictOut,
+  GeneratedRoutineOut,
+  AddStepRequest,
+  CreateRoutineRequest,
+} from '../types/routine';
 
 interface RoutineState {
-  amRoutine: Routine | null;
-  pmRoutine: Routine | null;
+  // ── Data ──────────────────────────────────────────────────────────
+  routines: RoutineOut[];
+  todayStatuses: Record<string, TodayStatus>;
+  selectedRoutineId: string | null;
   isLoading: boolean;
-  amTodayStatus: TodayStatus | null;
-  pmTodayStatus: TodayStatus | null;
-  activePeriod: 'am' | 'pm';
-  activeTab: 'today' | 'routine' | 'stats';
-  stats: RoutineStats | null;
+  stats: StatsOut | null;
   streak: { current_streak: number; longest_streak: number };
-  generatedRoutine: GeneratedRoutine | null;
+  costBreakdown: CostOut | null;
+  conflicts: ConflictOut[];
+  generatedRoutine: GeneratedRoutineOut | null;
   isGenerating: boolean;
-  costData: { total_monthly_cost: number } | null;
+  activeSegment: 'today' | 'routines' | 'stats';
+  completingStepId: string | null;
+  completingAll: boolean;
 
+  // ── Actions ───────────────────────────────────────────────────────
   init: () => Promise<void>;
   refresh: () => Promise<void>;
-  completeStep: (stepId: string, skipped?: boolean, skipReason?: string) => Promise<void>;
-  completeAllSteps: () => Promise<void>;
-  loadStats: (days?: number) => Promise<void>;
-  generateRoutine: (params?: { period?: string; routine_type?: string; additional_instructions?: string }) => Promise<GeneratedRoutine | null>;
-  saveGeneratedRoutine: () => Promise<boolean>;
-  addStep: (routineId: string, step: Record<string, unknown>) => Promise<void>;
+  completeStep: (routineId: string, stepId: string) => Promise<void>;
+  skipStep: (routineId: string, stepId: string, reason?: string) => Promise<void>;
+  completeAllSteps: (routineId: string) => Promise<void>;
+  createRoutine: (data: CreateRoutineRequest) => Promise<RoutineOut | null>;
+  deleteRoutine: (routineId: string) => Promise<void>;
+  addStep: (routineId: string, step: AddStepRequest | Record<string, unknown>) => Promise<void>;
   removeStep: (routineId: string, stepId: string) => Promise<void>;
+  reorderSteps: (routineId: string, stepIds: string[]) => Promise<void>;
+  generateRoutine: (params?: Record<string, unknown>) => Promise<GeneratedRoutineOut | null>;
+  saveGeneratedRoutine: () => Promise<boolean>;
+  loadStats: (days?: number) => Promise<void>;
   loadCost: () => Promise<void>;
-  setActivePeriod: (p: 'am' | 'pm') => void;
-  setActiveTab: (t: 'today' | 'routine' | 'stats') => void;
+  loadConflicts: () => Promise<void>;
+  setActiveSegment: (s: 'today' | 'routines' | 'stats') => void;
+  setSelectedRoutineId: (id: string | null) => void;
 }
 
 export const useRoutineStore = create<RoutineState>((set, get) => ({
-  amRoutine: null,
-  pmRoutine: null,
+  // ── Initial state ─────────────────────────────────────────────────
+  routines: [],
+  todayStatuses: {},
+  selectedRoutineId: null,
   isLoading: false,
-  amTodayStatus: null,
-  pmTodayStatus: null,
-  activePeriod: new Date().getHours() < 16 ? 'am' : 'pm',
-  activeTab: 'today',
   stats: null,
   streak: { current_streak: 0, longest_streak: 0 },
+  costBreakdown: null,
+  conflicts: [],
   generatedRoutine: null,
   isGenerating: false,
-  costData: null,
+  activeSegment: 'today',
+  completingStepId: null,
+  completingAll: false,
 
-  // Load everything in one call
+  // ── Init: load routines + statuses + streak ───────────────────────
   init: async () => {
     set({ isLoading: true });
     try {
-      const [overview, streak] = await Promise.all([
+      const [routines, streak] = await Promise.all([
         routineService.getActive(),
         routineService.getStreak(),
       ]);
-      set({ amRoutine: overview.am, pmRoutine: overview.pm, streak });
+      set({ routines, streak });
 
-      // Now load today status for whichever routines exist
-      const [amStatus, pmStatus] = await Promise.all([
-        overview.am ? routineService.getTodayStatus(overview.am.id) : null,
-        overview.pm ? routineService.getTodayStatus(overview.pm.id) : null,
-      ]);
-      set({ amTodayStatus: amStatus, pmTodayStatus: pmStatus });
-    } catch (e) { console.error('[Routine] Init:', e); }
+      // Load today status for each routine
+      const statusEntries = await Promise.all(
+        routines.map(async (r) => {
+          try {
+            const status = await routineService.getTodayStatus(r.id);
+            return [r.id, status] as [string, TodayStatus];
+          } catch {
+            return null;
+          }
+        }),
+      );
+      const todayStatuses: Record<string, TodayStatus> = {};
+      for (const entry of statusEntries) {
+        if (entry) todayStatuses[entry[0]] = entry[1];
+      }
+      set({ todayStatuses });
+    } catch (e) {
+      console.error('[Routine] Init:', e);
+    }
     set({ isLoading: false });
   },
 
@@ -67,40 +99,107 @@ export const useRoutineStore = create<RoutineState>((set, get) => ({
     await get().init();
   },
 
-  completeStep: async (stepId, skipped = false, skipReason) => {
-    const { activePeriod, amRoutine, pmRoutine } = get();
-    const routine = activePeriod === 'am' ? amRoutine : pmRoutine;
-    if (!routine) return;
+  // ── Step completion ───────────────────────────────────────────────
+  completeStep: async (routineId, stepId) => {
+    set({ completingStepId: stepId });
     try {
-      await routineService.completeStep(routine.id, stepId, skipped, skipReason);
-      // Reload just today status
-      const status = await routineService.getTodayStatus(routine.id);
-      if (activePeriod === 'am') set({ amTodayStatus: status });
-      else set({ pmTodayStatus: status });
-      // Refresh streak
+      await routineService.completeStep(routineId, stepId);
+      const status = await routineService.getTodayStatus(routineId);
+      set((s) => ({
+        todayStatuses: { ...s.todayStatuses, [routineId]: status },
+        completingStepId: null,
+      }));
       const streak = await routineService.getStreak();
       set({ streak });
-    } catch (e) { console.error('[Routine] Complete:', e); }
+    } catch (e) {
+      console.error('[Routine] Complete step:', e);
+      set({ completingStepId: null });
+    }
   },
 
-  completeAllSteps: async () => {
-    const { activePeriod, amRoutine, pmRoutine } = get();
-    const routine = activePeriod === 'am' ? amRoutine : pmRoutine;
-    if (!routine) return;
+  skipStep: async (routineId, stepId, reason) => {
+    set({ completingStepId: stepId });
     try {
-      await routineService.completeAll(routine.id);
-      const status = await routineService.getTodayStatus(routine.id);
-      if (activePeriod === 'am') set({ amTodayStatus: status });
-      else set({ pmTodayStatus: status });
+      await routineService.completeStep(routineId, stepId, true, reason);
+      const status = await routineService.getTodayStatus(routineId);
+      set((s) => ({
+        todayStatuses: { ...s.todayStatuses, [routineId]: status },
+        completingStepId: null,
+      }));
       const streak = await routineService.getStreak();
       set({ streak });
-    } catch (e) { console.error('[Routine] Complete all:', e); }
+    } catch (e) {
+      console.error('[Routine] Skip step:', e);
+      set({ completingStepId: null });
+    }
   },
 
-  loadStats: async (days = 30) => {
-    try { set({ stats: await routineService.getStats(days) }); } catch {}
+  completeAllSteps: async (routineId) => {
+    set({ completingAll: true });
+    try {
+      await routineService.completeAll(routineId);
+      const status = await routineService.getTodayStatus(routineId);
+      set((s) => ({
+        todayStatuses: { ...s.todayStatuses, [routineId]: status },
+        completingAll: false,
+      }));
+      const streak = await routineService.getStreak();
+      set({ streak });
+    } catch (e) {
+      console.error('[Routine] Complete all:', e);
+      set({ completingAll: false });
+    }
   },
 
+  // ── CRUD ──────────────────────────────────────────────────────────
+  createRoutine: async (data) => {
+    try {
+      const routine = await routineService.create(data);
+      await get().init();
+      return routine;
+    } catch (e) {
+      console.error('[Routine] Create:', e);
+      return null;
+    }
+  },
+
+  deleteRoutine: async (routineId) => {
+    try {
+      await routineService.deactivate(routineId);
+      await get().init();
+    } catch (e) {
+      console.error('[Routine] Delete:', e);
+    }
+  },
+
+  addStep: async (routineId, step) => {
+    try {
+      await routineService.addStep(routineId, step);
+      await get().init();
+    } catch (e) {
+      console.error('[Routine] Add step:', e);
+    }
+  },
+
+  removeStep: async (routineId, stepId) => {
+    try {
+      await routineService.removeStep(routineId, stepId);
+      await get().init();
+    } catch (e) {
+      console.error('[Routine] Remove step:', e);
+    }
+  },
+
+  reorderSteps: async (routineId, stepIds) => {
+    try {
+      await routineService.reorderSteps(routineId, stepIds);
+      await get().init();
+    } catch (e) {
+      console.error('[Routine] Reorder steps:', e);
+    }
+  },
+
+  // ── AI Generation ─────────────────────────────────────────────────
   generateRoutine: async (params) => {
     set({ isGenerating: true, generatedRoutine: null });
     try {
@@ -122,21 +221,20 @@ export const useRoutineStore = create<RoutineState>((set, get) => ({
     const { generatedRoutine } = get();
     if (!generatedRoutine) return false;
     try {
-      const amSteps = generatedRoutine.steps.filter((s: any) => s.period === 'am');
-      const pmSteps = generatedRoutine.steps.filter((s: any) => s.period === 'pm');
+      const amSteps = generatedRoutine.steps.filter((s) => s.period === 'am');
+      const pmSteps = generatedRoutine.steps.filter((s) => s.period === 'pm');
       const hasPerField = amSteps.length > 0 || pmSteps.length > 0;
 
-      console.log(`[Routine] Saving: AM=${amSteps.length} PM=${pmSteps.length} hasPerField=${hasPerField} total=${generatedRoutine.steps.length}`);
-
-      const saveSteps = async (period: 'am' | 'pm', steps: any[]) => {
+      const saveSteps = async (period: 'am' | 'pm', steps: typeof generatedRoutine.steps) => {
         if (steps.length === 0) return;
-        console.log(`[Routine] Creating ${period} routine with ${steps.length} steps`);
-        const r = await routineService.create({ period, routine_type: generatedRoutine.routine_type, name: generatedRoutine.name });
-        console.log(`[Routine] Created routine ${r.id}`);
+        const r = await routineService.create({
+          name: generatedRoutine.name,
+          period,
+          routine_type: generatedRoutine.routine_type,
+          description: generatedRoutine.description,
+        });
         for (const s of steps) {
-          const req = _toStepReq(s);
-          console.log(`[Routine] Adding step: ${req.category} product_id=${req.product_id}`);
-          await routineService.addStep(r.id, req);
+          await routineService.addStep(r.id, _toStepReq(s));
         }
       };
 
@@ -144,7 +242,6 @@ export const useRoutineStore = create<RoutineState>((set, get) => ({
         await saveSteps('am', amSteps);
         await saveSteps('pm', pmSteps);
       } else {
-        // No period field — save all as both AM and PM
         await saveSteps('am', generatedRoutine.steps);
       }
 
@@ -152,47 +249,62 @@ export const useRoutineStore = create<RoutineState>((set, get) => ({
       await get().init();
       return true;
     } catch (e) {
-      console.error('[Routine] Save FAILED:', e);
+      console.error('[Routine] Save generated:', e);
       return false;
     }
   },
 
-  addStep: async (routineId, step) => {
+  // ── Stats / Cost / Conflicts ──────────────────────────────────────
+  loadStats: async (days = 30) => {
     try {
-      await routineService.addStep(routineId, step);
-      await get().init();
-    } catch (e) { console.error('[Routine] Add step:', e); }
-  },
-
-  removeStep: async (routineId, stepId) => {
-    try {
-      await routineService.removeStep(routineId, stepId);
-      await get().init();
-    } catch (e) { console.error('[Routine] Remove step:', e); }
+      set({ stats: await routineService.getStats(days) });
+    } catch (e) {
+      console.error('[Routine] Load stats:', e);
+    }
   },
 
   loadCost: async () => {
-    try { set({ costData: await routineService.getCost() }); } catch {}
+    try {
+      set({ costBreakdown: await routineService.getCost() });
+    } catch (e) {
+      console.error('[Routine] Load cost:', e);
+    }
   },
 
-  setActivePeriod: (p) => set({ activePeriod: p }),
-  setActiveTab: (t) => set({ activeTab: t }),
+  loadConflicts: async () => {
+    try {
+      set({ conflicts: await routineService.getConflicts() });
+    } catch (e) {
+      console.error('[Routine] Load conflicts:', e);
+    }
+  },
+
+  // ── UI state ──────────────────────────────────────────────────────
+  setActiveSegment: (s) => set({ activeSegment: s }),
+  setSelectedRoutineId: (id) => set({ selectedRoutineId: id }),
 }));
 
+// ── Helper ────────────────────────────────────────────────────────────
+
 function _toStepReq(step: any): Record<string, unknown> {
-  // Build display name with brand
-  const displayName = step.product_brand && step.product_name
-    ? `${step.product_brand} — ${step.product_name}`
-    : step.product_name || undefined;
+  const displayName =
+    step.product_brand && step.product_name
+      ? `${step.product_brand} — ${step.product_name}`
+      : (step.product_name as string | undefined) || undefined;
 
   return {
     category: step.category,
-    // product_id: only set if it's a real positive integer (from DB)
-    product_id: typeof step.product_id === 'number' && step.product_id > 0 ? step.product_id : undefined,
+    product_id:
+      typeof step.product_id === 'number' && step.product_id > 0
+        ? step.product_id
+        : undefined,
     custom_product_name: displayName,
     instruction: step.instruction || undefined,
-    wait_time_seconds: typeof step.wait_time_seconds === 'number' ? step.wait_time_seconds : undefined,
-    frequency: step.frequency || 'daily',
+    wait_time_seconds:
+      typeof step.wait_time_seconds === 'number'
+        ? step.wait_time_seconds
+        : undefined,
+    frequency: (step.frequency as string) || 'daily',
     frequency_days: step.frequency_days || undefined,
     is_essential: step.is_essential ?? true,
     notes: step.why_this_product || undefined,

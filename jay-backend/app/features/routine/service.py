@@ -15,27 +15,21 @@ from .constants import STEP_CATEGORIES
 from .schemas import (
     CreateRoutineRequest, AddStepRequest, UpdateStepRequest,
     ReorderStepsRequest, CompleteStepRequest, StepOut, RoutineOut,
-    RoutineOverview, TodayStatusOut, CompletionStatusOut, StatsOut,
+    TodayStatusOut, CompletionStatusOut, StatsOut,
 )
 
 
 # ── CRUD ──────────────────────────────────────────────────────────────────────
 
-async def get_active_routines(user: CurrentUser, db: AsyncSession) -> RoutineOverview:
+async def get_active_routines(user: CurrentUser, db: AsyncSession) -> list:
     result = await db.execute(
         select(Routine)
         .options(selectinload(Routine.steps).selectinload(RoutineStep.product))
         .where(Routine.user_id == user.id, Routine.is_active == True)
+        .order_by(Routine.created_at)
     )
     routines = result.scalars().all()
-    am = pm = None
-    for r in routines:
-        out = _routine_to_out(r)
-        if r.period == "am":
-            am = out
-        elif r.period == "pm":
-            pm = out
-    return RoutineOverview(am=am, pm=pm)
+    return [_routine_to_out(r) for r in routines]
 
 
 async def create_routine(user: CurrentUser, data: CreateRoutineRequest, db: AsyncSession) -> Routine:
@@ -49,7 +43,8 @@ async def create_routine(user: CurrentUser, data: CreateRoutineRequest, db: Asyn
 
     routine = Routine(
         user_id=user.id,
-        name=data.name or f"My {data.period.upper()} routine",
+        name=data.name or f"My {data.period.replace('_', ' ').title()} Routine",
+        description=data.description,
         period=data.period,
         routine_type=data.routine_type,
     )
@@ -484,7 +479,7 @@ def _routine_to_out(routine: Routine) -> RoutineOut:
         ))
 
     return RoutineOut(
-        id=routine.id, name=routine.name, period=routine.period,
+        id=routine.id, name=routine.name, description=routine.description, period=routine.period,
         routine_type=routine.routine_type, is_active=routine.is_active,
         total_monthly_cost=float(routine.total_monthly_cost) if routine.total_monthly_cost else None,
         steps=steps, created_at=routine.created_at, updated_at=routine.updated_at,

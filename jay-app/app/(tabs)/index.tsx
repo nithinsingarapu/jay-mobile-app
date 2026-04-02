@@ -31,11 +31,12 @@ export default function HomeScreen() {
   useEffect(() => { routineStore.init(); }, []);
 
   const routineSteps = useMemo(() => {
-    const routine = period === 'AM' ? routineStore.amRoutine : routineStore.pmRoutine;
-    const todayStatus = period === 'AM' ? routineStore.amTodayStatus : routineStore.pmTodayStatus;
+    const periodMap: Record<string, string[]> = { 'AM': ['morning', 'am'], 'PM': ['evening', 'pm', 'night'] };
+    const routine = routineStore.routines.find((r: any) => periodMap[period]?.includes(r.period));
+    const todayStatus = routine ? routineStore.todayStatuses[routine.id] : null;
     if (!routine?.steps?.length) return [];
-    return routine.steps.map((step, i) => {
-      const ss = todayStatus?.steps?.find((s) => s.step_id === step.id);
+    return routine.steps.map((step: any, i: number) => {
+      const ss = todayStatus?.steps?.find((s: any) => s.step_id === step.id);
       return {
         id: step.id,
         step: step.step_order ?? i + 1,
@@ -46,7 +47,7 @@ export default function HomeScreen() {
         completed: ss?.completed ?? false,
       };
     });
-  }, [period, routineStore.amRoutine, routineStore.pmRoutine, routineStore.amTodayStatus, routineStore.pmTodayStatus]);
+  }, [period, routineStore.routines, routineStore.todayStatuses]);
 
   return (
     <ScrollView

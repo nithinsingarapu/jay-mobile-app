@@ -37,11 +37,23 @@ class Product(Base):
 
     # Pricing & media
     price_inr: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
-    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    product_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    product_url: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Formulation metadata
     formulation: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    # Enrichment
+    rating: Mapped[Decimal | None] = mapped_column(Numeric(2, 1), nullable=True)
+    review_count: Mapped[int | None] = mapped_column(Integer, nullable=True, default=0)
+    buy_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_urls: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    price_source: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    price_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    serp_enriched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    brand_tier: Mapped[str | None] = mapped_column(String(30), nullable=True, index=True)
+    normalized_category: Mapped[str | None] = mapped_column(String(30), nullable=True, index=True)
+    department: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
 
     # Status
     is_available: Mapped[bool] = mapped_column(Boolean, default=True)

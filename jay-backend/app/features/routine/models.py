@@ -20,7 +20,8 @@ class Routine(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     name: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    period: Mapped[str] = mapped_column(String(5), nullable=False)  # 'am' or 'pm'
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    period: Mapped[str] = mapped_column(String(30), nullable=False)
     routine_type: Mapped[str] = mapped_column(String(30), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     total_monthly_cost: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
