@@ -167,23 +167,25 @@ export default function RoutineScreen() {
   const handleCreateRoutine = useCallback(
     async (data: CreateRoutineData) => {
       createSheetRef.current?.close();
+      const name = data.routineName || `${data.sessionName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} — ${data.routineTypeName}`;
+
       if (data.buildMethod === 'jay') {
         router.push({
           pathname: '/(screens)/build-with-jay',
-          params: { sessionName: data.sessionName, routineType: data.routineType },
+          params: { sessionName: data.sessionName, routineType: data.routineType, routineName: name },
         } as any);
         return;
       }
+
+      // scratch — create routine and navigate to edit screen
       const created = await createRoutine({
-        name: `${data.sessionName} — ${data.routineTypeName}`,
+        name,
         period: data.sessionName,
         routine_type: data.routineType,
       });
       if (created) {
         setSelectedRoutineId(created.id);
-        if (data.buildMethod === 'scratch' || data.buildMethod === 'template') {
-          router.push({ pathname: '/(screens)/routine-edit', params: { routineId: created.id } } as any);
-        }
+        router.push({ pathname: '/(screens)/routine-edit', params: { routineId: created.id } } as any);
       }
     },
     [createRoutine, router],
@@ -596,7 +598,11 @@ export default function RoutineScreen() {
 
       {renderContent()}
 
-      <CreateRoutineSheet sheetRef={createSheetRef} onCreated={handleCreateRoutine} />
+      <CreateRoutineSheet
+        sheetRef={createSheetRef}
+        onCreated={handleCreateRoutine}
+        onBrowseLibrary={() => setActiveSegment(1)}
+      />
       <SkipReasonSheet
         sheetRef={skipSheetRef}
         onSkip={handleSkip}

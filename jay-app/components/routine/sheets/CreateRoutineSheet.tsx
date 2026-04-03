@@ -1,23 +1,20 @@
 /**
- * CreateRoutineSheet — 3-step wizard bottom sheet.
- *   Step 1: Session (when?)
- *   Step 2: Routine type (what kind?)
- *   Step 3: Build method (how?)
+ * CreateRoutineSheet — Smart 2-step creation flow.
+ *
+ * Step 1: When (session) + What (routine type)
+ * Step 2: How to build (only shown if type needs it)
+ *
+ * Smart shortcuts:
+ * - "Let JAY decide" → skips step 2, goes directly to AI build
+ * - "Choose from Library" → closes sheet, callback to switch to Library tab
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  ActivityIndicator,
-  TextInput,
-  Animated,
-  Dimensions,
+  View, Text, Pressable, StyleSheet, ActivityIndicator,
+  TextInput, ScrollView,
 } from 'react-native';
 import BottomSheet, {
-  BottomSheetScrollView,
-  BottomSheetBackdrop,
+  BottomSheetScrollView, BottomSheetBackdrop,
 } from '@gorhom/bottom-sheet';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../../lib/theme';
@@ -27,102 +24,151 @@ import type { RoutineTypeInfo } from '../../../types/routine';
 
 // ── Types ───────────────────────────────────────────────────────────────
 
-type BuildMethod = 'jay' | 'template' | 'scratch';
-
 export interface CreateRoutineData {
   routineType: string;
   routineTypeName: string;
-  buildMethod: BuildMethod;
+  buildMethod: 'jay' | 'scratch';
   sessionName: string;
+  routineName?: string;
 }
 
-interface CreateRoutineSheetProps {
+interface Props {
   sheetRef: React.RefObject<BottomSheet | null>;
   onCreated: (data: CreateRoutineData) => void;
+  onBrowseLibrary?: () => void;
 }
 
-// ── Constants ───────────────────────────────────────────────────────────
+// ── Session presets ─────────────────────────────────────────────────────
 
-const SESSION_PRESETS = [
-  { value: 'morning', label: 'Morning', emoji: '🌅', desc: 'Wake-up skincare', time: '6 – 9 AM' },
-  { value: 'afternoon', label: 'Afternoon', emoji: '☀️', desc: 'Midday sunscreen reapply & touch-up', time: '12 – 3 PM' },
-  { value: 'evening', label: 'Evening', emoji: '🌆', desc: 'Post-work wind-down', time: '5 – 7 PM' },
-  { value: 'night', label: 'Night', emoji: '🌙', desc: 'Before-bed repair routine', time: '9 – 11 PM' },
+const SESSIONS = [
+  { value: 'full_day', label: 'Full Day', emoji: '🌤️', desc: 'Complete AM + PM routine' },
+  { value: 'morning', label: 'Morning', emoji: '🌅', desc: 'Wake-up skincare' },
+  { value: 'afternoon', label: 'Afternoon', emoji: '☀️', desc: 'Midday touch-up' },
+  { value: 'evening', label: 'Evening', emoji: '🌆', desc: 'Post-work wind-down' },
+  { value: 'night', label: 'Night', emoji: '🌙', desc: 'Before-bed repair' },
 ];
 
-const TYPE_EMOJI: Record<string, string> = {
-  essential: '🌿', complete: '⭐', glass_skin: '✨',
-  barrier_repair: '🛡️', anti_acne: '🎯', custom: '➕',
-};
+// ── Routine type options ────────────────────────────────────────────────
 
-const TYPE_TINT_KEY: Record<string, string> = {
-  essential: 'systemGreen', complete: 'systemBlue', glass_skin: 'systemTeal',
-  barrier_repair: 'systemOrange', anti_acne: 'systemRed', custom: 'systemGray',
-};
+interface TypeOption {
+  id: string;
+  emoji: string;
+  name: string;
+  desc: string;
+  tint: string; // color key from theme
+  isSpecial?: boolean;
+}
 
-const fmtCategory = (cat: string) =>
-  cat.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+const SMART_TYPES: TypeOption[] = [
+  { id: 'jay_decide', emoji: '🤖', name: 'Let JAY decide', desc: 'AI analyzes your skin and builds the perfect routine', tint: 'systemBlue', isSpecial: true },
+  { id: 'library', emoji: '📚', name: 'Choose from Library', desc: 'Browse 40+ routines — K-beauty, acne, anti-aging...', tint: 'systemIndigo', isSpecial: true },
+];
 
-// ── Checkmark SVG ───────────────────────────────────────────────────────
+const CORE_TYPES: TypeOption[] = [
+  { id: 'essential', emoji: '🌿', name: 'Essential', desc: '3 steps · Cleanser + moisturizer + SPF', tint: 'systemGreen' },
+  { id: 'complete', emoji: '⭐', name: 'Complete', desc: '5-6 steps · Serums + actives included', tint: 'systemBlue' },
+  { id: 'glass_skin', emoji: '✨', name: 'Glass Skin', desc: '8-10 steps · K-beauty layered hydration', tint: 'systemTeal' },
+  { id: 'barrier_repair', emoji: '🛡️', name: 'Barrier Repair', desc: '3 steps · Gentle, ceramide-focused recovery', tint: 'systemOrange' },
+  { id: 'anti_acne', emoji: '🎯', name: 'Anti-Acne', desc: '4-5 steps · BHA + niacinamide protocol', tint: 'systemRed' },
+  { id: 'custom', emoji: '✏️', name: 'Custom', desc: 'Start empty — add your own steps', tint: 'systemGray' },
+];
 
-const Check = ({ color, size = 18 }: { color: string; size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 20 20">
+// ── Check SVG ───────────────────────────────────────────────────────────
+
+const Check = ({ color }: { color: string }) => (
+  <Svg width={18} height={18} viewBox="0 0 20 20">
     <Path d="M4 10.5L8 14.5L16 5.5" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" fill="none" />
   </Svg>
 );
 
-// ── Component ───────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+// COMPONENT
+// ═══════════════════════════════════════════════════════════════════════
 
-export function CreateRoutineSheet({ sheetRef, onCreated }: CreateRoutineSheetProps) {
+export function CreateRoutineSheet({ sheetRef, onCreated, onBrowseLibrary }: Props) {
   const { colors } = useTheme();
-  const snapPoints = useMemo(() => ['75%'], []);
+  const snapPoints = useMemo(() => ['82%'], []);
 
-  // Wizard state
-  const [step, setStep] = useState(0); // 0=session, 1=type, 2=build
-  const [sessionName, setSessionName] = useState('morning');
+  const [step, setStep] = useState(0); // 0 = when+what, 1 = how (only for specific types)
+  const [session, setSession] = useState('morning');
   const [customSession, setCustomSession] = useState('');
-  const [selectedType, setSelectedType] = useState('essential');
-  const [buildMethod, setBuildMethod] = useState<BuildMethod>('jay');
+  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [routineName, setRoutineName] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
-  // Routine types from API
-  const [types, setTypes] = useState<Record<string, RoutineTypeInfo>>({});
-  useEffect(() => { routineService.getTypes().then(d => setTypes(d as any)).catch(() => {}); }, []);
-  const typeEntries = useMemo(() => Object.entries(types), [types]);
-  const selectedInfo = types[selectedType];
-
-  // Step progress dots
-  const STEPS = ['Session', 'Type', 'Build'];
 
   const reset = useCallback(() => {
     setStep(0);
-    setSessionName('morning');
+    setSession('morning');
     setCustomSession('');
-    setSelectedType('essential');
-    setBuildMethod('jay');
+    setSelectedType(null);
+    setRoutineName('');
     setSubmitting(false);
   }, []);
 
-  const handleNext = useCallback(() => {
-    if (step < 2) setStep(step + 1);
-  }, [step]);
+  const finalSession = customSession.trim() || session;
+  const sessionLabel = finalSession.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
 
-  const handleBack = useCallback(() => {
-    if (step > 0) setStep(step - 1);
-  }, [step]);
+  // ── Type selection handler (smart routing) ──────────────────────────
 
-  const handleCreate = useCallback(() => {
-    if (submitting) return;
+  const handleTypeSelect = useCallback((typeId: string) => {
+    if (typeId === 'jay_decide') {
+      // Skip step 2 — go directly to AI build
+      setSubmitting(true);
+      onCreated({
+        routineType: 'auto',
+        routineTypeName: 'JAY\'s Pick',
+        buildMethod: 'jay',
+        sessionName: finalSession,
+        routineName: routineName.trim() || `${sessionLabel} Routine`,
+      });
+      setTimeout(reset, 400);
+      return;
+    }
+
+    if (typeId === 'library') {
+      // Close sheet and switch to Library tab
+      sheetRef.current?.close();
+      setTimeout(() => {
+        onBrowseLibrary?.();
+        reset();
+      }, 300);
+      return;
+    }
+
+    if (typeId === 'custom') {
+      // Custom = start empty, skip step 2
+      setSubmitting(true);
+      onCreated({
+        routineType: 'custom',
+        routineTypeName: 'Custom',
+        buildMethod: 'scratch',
+        sessionName: finalSession,
+        routineName: routineName.trim() || `${sessionLabel} Routine`,
+      });
+      setTimeout(reset, 400);
+      return;
+    }
+
+    // Specific type selected → go to step 2 (choose build method)
+    setSelectedType(typeId);
+    setStep(1);
+  }, [finalSession, sessionLabel, routineName, onCreated, onBrowseLibrary, sheetRef, reset]);
+
+  // ── Build method handler ────────────────────────────────────────────
+
+  const handleBuild = useCallback((method: 'jay' | 'scratch') => {
+    if (submitting || !selectedType) return;
     setSubmitting(true);
-    const finalSession = customSession.trim() || sessionName;
+    const typeInfo = CORE_TYPES.find(t => t.id === selectedType);
     onCreated({
       routineType: selectedType,
-      routineTypeName: selectedInfo?.name || selectedType,
-      buildMethod,
+      routineTypeName: typeInfo?.name || selectedType,
+      buildMethod: method,
       sessionName: finalSession,
+      routineName: routineName.trim() || `${sessionLabel} — ${typeInfo?.name || 'Routine'}`,
     });
     setTimeout(reset, 400);
-  }, [selectedType, selectedInfo, buildMethod, sessionName, customSession, submitting, onCreated, reset]);
+  }, [submitting, selectedType, finalSession, sessionLabel, routineName, onCreated, reset]);
 
   const renderBackdrop = useCallback(
     (props: any) => (
@@ -130,190 +176,187 @@ export function CreateRoutineSheet({ sheetRef, onCreated }: CreateRoutineSheetPr
     ), [],
   );
 
-  // ── Step indicator ──────────────────────────────────────────────────
-  const StepIndicator = () => (
-    <View style={$.indicator}>
-      {STEPS.map((label, i) => (
-        <View key={label} style={$.indicatorItem}>
-          <View style={[$.dot, {
-            backgroundColor: i <= step ? colors.systemBlue : colors.systemGray4,
-            width: i === step ? 24 : 8,
-          }]} />
-          {i === step && (
-            <Text style={[$.dotLabel, { color: colors.systemBlue }]}>{label}</Text>
-          )}
-        </View>
-      ))}
-    </View>
-  );
+  // ═══════════════════════════════════════════════════════════════════
+  // STEP 0: When + What
+  // ═══════════════════════════════════════════════════════════════════
 
-  // ── Step 0: Session ─────────────────────────────────────────────────
-  const renderSessionStep = () => (
+  const renderStep0 = () => (
     <View>
-      <Text style={[$.stepTitle, { color: colors.label }]}>When is this routine?</Text>
-      <Text style={[$.stepSubtitle, { color: colors.secondaryLabel }]}>
-        Pick a time of day, or create a custom session
-      </Text>
+      {/* Routine name (optional) */}
+      <Text style={[$.label, { color: colors.secondaryLabel }]}>NAME (OPTIONAL)</Text>
+      <View style={[$.inputWrap, { backgroundColor: colors.tertiarySystemFill }]}>
+        <TextInput
+          style={[$.input, { color: colors.label }]}
+          placeholder="e.g. Summer Glow, Barrier Fix..."
+          placeholderTextColor={colors.quaternaryLabel}
+          value={routineName}
+          onChangeText={setRoutineName}
+          autoCapitalize="words"
+          returnKeyType="done"
+        />
+      </View>
 
-      <View style={[$.groupedTable, { backgroundColor: colors.tertiarySystemBackground }]}>
-        {SESSION_PRESETS.map((preset, idx) => {
-          const isSelected = !customSession.trim() && sessionName === preset.value;
+      {/* When */}
+      <Text style={[$.sectionHeader, { color: colors.label }]}>When?</Text>
+      <View style={[$.groupedTable, { backgroundColor: colors.tertiarySystemFill }]}>
+        {SESSIONS.map((s, i) => {
+          const active = !customSession.trim() && session === s.value;
           return (
             <Pressable
-              key={preset.value}
+              key={s.value}
+              onPress={() => { setSession(s.value); setCustomSession(''); }}
               style={[
-                $.sessionRow,
-                idx < SESSION_PRESETS.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.separator },
-                isSelected && { backgroundColor: colors.systemBlue + '0D' },
+                $.row,
+                i < SESSIONS.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.separator },
+                active && { backgroundColor: colors.systemBlue + '08' },
               ]}
-              onPress={() => { setSessionName(preset.value); setCustomSession(''); }}
             >
-              <Text style={$.sessionEmoji}>{preset.emoji}</Text>
-              <View style={$.sessionText}>
-                <Text style={[$.sessionLabel, { color: colors.label }]}>{preset.label}</Text>
-                <Text style={[$.sessionDesc, { color: colors.tertiaryLabel }]}>{preset.time}</Text>
+              <Text style={$.rowEmoji}>{s.emoji}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[$.rowTitle, { color: colors.label }]}>{s.label}</Text>
+                <Text style={[$.rowSub, { color: colors.tertiaryLabel }]}>{s.desc}</Text>
               </View>
-              {isSelected && <Check color={colors.systemBlue} />}
+              {active && <Check color={colors.systemBlue} />}
             </Pressable>
           );
         })}
       </View>
 
-      <View style={[$.customWrap, {
-        backgroundColor: colors.tertiarySystemBackground,
+      {/* Custom session */}
+      <View style={[$.customRow, {
+        backgroundColor: colors.tertiarySystemFill,
         borderColor: customSession.trim() ? colors.systemBlue : 'transparent',
         borderWidth: customSession.trim() ? 1.5 : 0,
       }]}>
-        <Text style={[$.customLabel, { color: colors.tertiaryLabel }]}>Or custom:</Text>
+        <Text style={{ fontSize: 14, color: colors.tertiaryLabel }}>Or:</Text>
         <TextInput
           style={[$.customInput, { color: colors.label }]}
-          placeholder="e.g. Sunscreen reapply, Post-gym"
+          placeholder="Custom session name..."
           placeholderTextColor={colors.quaternaryLabel}
           value={customSession}
           onChangeText={setCustomSession}
           autoCapitalize="words"
         />
       </View>
-    </View>
-  );
 
-  // ── Step 1: Routine Type ────────────────────────────────────────────
-  const renderTypeStep = () => (
-    <View>
-      <Text style={[$.stepTitle, { color: colors.label }]}>What kind of routine?</Text>
-      <Text style={[$.stepSubtitle, { color: colors.secondaryLabel }]}>
-        Choose a template that fits your needs
-      </Text>
+      {/* What kind */}
+      <Text style={[$.sectionHeader, { color: colors.label, marginTop: SPACE.xxl }]}>What kind?</Text>
 
-      {typeEntries.map(([id, info]) => {
-        const isSelected = selectedType === id;
-        const tintKey = TYPE_TINT_KEY[id] || 'systemBlue';
-        const tint = (colors as any)[tintKey] || colors.systemBlue;
-
+      {/* Smart options */}
+      {SMART_TYPES.map((t, i) => {
+        const tint = (colors as any)[t.tint] || colors.systemBlue;
         return (
           <Pressable
-            key={id}
-            onPress={() => setSelectedType(id)}
-            style={[
-              $.typeCard,
-              { backgroundColor: colors.tertiarySystemBackground },
-              isSelected && { borderWidth: 1.5, borderColor: tint },
-            ]}
+            key={t.id}
+            onPress={() => handleTypeSelect(t.id)}
+            style={[$.smartCard, { backgroundColor: tint + '08', borderColor: tint + '20' }]}
           >
-            <View style={$.typeRow}>
-              <View style={[$.typeIcon, { backgroundColor: tint + '15' }]}>
-                <Text style={{ fontSize: 18 }}>{TYPE_EMOJI[id] || '📋'}</Text>
-              </View>
-              <View style={$.typeInfo}>
-                <Text style={[$.typeName, { color: colors.label }]}>{info.name}</Text>
-                <Text style={[$.typeMeta, { color: colors.tertiaryLabel }]}>
-                  {info.max_steps} steps max · {info.complexity}
-                </Text>
-              </View>
-              {isSelected && <Check color={tint} />}
+            <View style={[$.smartIcon, { backgroundColor: tint + '18' }]}>
+              <Text style={{ fontSize: 22 }}>{t.emoji}</Text>
             </View>
-            {isSelected && (
-              <View style={$.typeExpanded}>
-                <Text style={[$.typeDesc, { color: colors.secondaryLabel }]}>{info.description}</Text>
-                {id !== 'custom' && info.am_template.length > 0 && (
-                  <View style={$.chipRow}>
-                    {[...info.am_template.slice(0, 5)].map(cat => (
-                      <View key={cat} style={[$.chip, { backgroundColor: tint + '12' }]}>
-                        <Text style={[$.chipText, { color: tint }]}>{fmtCategory(cat)}</Text>
-                      </View>
-                    ))}
-                    {info.am_template.length > 5 && (
-                      <Text style={[$.chipMore, { color: colors.tertiaryLabel }]}>+{info.am_template.length - 5} more</Text>
-                    )}
-                  </View>
-                )}
-              </View>
-            )}
+            <View style={{ flex: 1 }}>
+              <Text style={[$.smartName, { color: tint }]}>{t.name}</Text>
+              <Text style={[$.smartDesc, { color: colors.secondaryLabel }]}>{t.desc}</Text>
+            </View>
+            <Svg width={8} height={14} viewBox="0 0 8 14" fill="none">
+              <Path d="M1 1l6 6-6 6" stroke={tint} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
           </Pressable>
         );
       })}
+
+      {/* Core types */}
+      <Text style={[$.label, { color: colors.secondaryLabel, marginTop: SPACE.lg }]}>OR CHOOSE A TYPE</Text>
+      <View style={[$.groupedTable, { backgroundColor: colors.tertiarySystemFill }]}>
+        {CORE_TYPES.map((t, i) => {
+          const tint = (colors as any)[t.tint] || colors.systemBlue;
+          return (
+            <Pressable
+              key={t.id}
+              onPress={() => handleTypeSelect(t.id)}
+              style={[
+                $.row,
+                i < CORE_TYPES.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.separator },
+              ]}
+            >
+              <View style={[$.typeCircle, { backgroundColor: tint + '15' }]}>
+                <Text style={{ fontSize: 16 }}>{t.emoji}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[$.rowTitle, { color: colors.label }]}>{t.name}</Text>
+                <Text style={[$.rowSub, { color: colors.tertiaryLabel }]}>{t.desc}</Text>
+              </View>
+              <Svg width={8} height={14} viewBox="0 0 8 14" fill="none">
+                <Path d="M1 1l6 6-6 6" stroke={colors.systemGray3} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+              </Svg>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 
-  // ── Step 2: Build Method ────────────────────────────────────────────
-  const renderBuildStep = () => {
-    const finalSession = customSession.trim() || sessionName;
-    const sessionDisplay = fmtCategory(finalSession);
+  // ═══════════════════════════════════════════════════════════════════
+  // STEP 1: How to build (only for specific types, not custom/jay/library)
+  // ═══════════════════════════════════════════════════════════════════
 
+  const renderStep1 = () => {
+    const typeInfo = CORE_TYPES.find(t => t.id === selectedType);
     return (
       <View>
-        <Text style={[$.stepTitle, { color: colors.label }]}>How do you want to build it?</Text>
-        <Text style={[$.stepSubtitle, { color: colors.secondaryLabel }]}>
-          {sessionDisplay} · {selectedInfo?.name || selectedType}
+        <Text style={[$.stepTitle, { color: colors.label }]}>
+          How should we build your {typeInfo?.name} routine?
+        </Text>
+        <Text style={[$.stepSub, { color: colors.secondaryLabel }]}>
+          {sessionLabel} · {typeInfo?.desc}
         </Text>
 
-        <View style={[$.groupedTable, { backgroundColor: colors.tertiarySystemBackground }]}>
-          {([
-            {
-              value: 'jay' as BuildMethod, emoji: '🤖', label: 'Build with JAY',
-              desc: 'AI analyzes your skin profile, picks the best products, checks for conflicts',
-              tint: colors.systemBlue,
-            },
-            {
-              value: 'template' as BuildMethod, emoji: '📋', label: 'Use template',
-              desc: 'Pre-filled step categories from the template — add your own products',
-              tint: colors.systemIndigo,
-            },
-            {
-              value: 'scratch' as BuildMethod, emoji: '✏️', label: 'Start empty',
-              desc: 'Blank routine — manually add each step, product, and timing',
-              tint: colors.systemGray,
-            },
-          ]).map((opt, idx) => {
-            const isSelected = buildMethod === opt.value;
-            return (
-              <Pressable
-                key={opt.value}
-                style={[
-                  $.buildRow,
-                  idx < 2 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.separator },
-                  isSelected && { backgroundColor: opt.tint + '0D' },
-                ]}
-                onPress={() => setBuildMethod(opt.value)}
-              >
-                <View style={[$.buildIcon, { backgroundColor: opt.tint + '15' }]}>
-                  <Text style={{ fontSize: 20 }}>{opt.emoji}</Text>
-                </View>
-                <View style={$.buildText}>
-                  <Text style={[$.buildLabel, { color: colors.label }]}>{opt.label}</Text>
-                  <Text style={[$.buildDesc, { color: colors.secondaryLabel }]} numberOfLines={2}>{opt.desc}</Text>
-                </View>
-                {isSelected && <Check color={opt.tint} />}
-              </Pressable>
-            );
-          })}
-        </View>
+        {/* Build with JAY */}
+        <Pressable
+          onPress={() => handleBuild('jay')}
+          disabled={submitting}
+          style={[$.buildCard, { backgroundColor: colors.systemBlue + '08', borderColor: colors.systemBlue + '25' }]}
+        >
+          <View style={[$.buildCardIcon, { backgroundColor: colors.systemBlue + '18' }]}>
+            <Text style={{ fontSize: 28 }}>🤖</Text>
+          </View>
+          <Text style={[$.buildCardTitle, { color: colors.systemBlue }]}>Build with JAY</Text>
+          <Text style={[$.buildCardDesc, { color: colors.secondaryLabel }]}>
+            AI picks the best products for your skin type, checks for ingredient conflicts, and calculates cost.
+          </Text>
+          <View style={[$.buildCardBtn, { backgroundColor: colors.systemBlue }]}>
+            {submitting ? (
+              <ActivityIndicator color="#FFF" size="small" />
+            ) : (
+              <Text style={$.buildCardBtnText}>Build with JAY ✨</Text>
+            )}
+          </View>
+        </Pressable>
+
+        {/* Start empty */}
+        <Pressable
+          onPress={() => handleBuild('scratch')}
+          disabled={submitting}
+          style={[$.buildCard, { backgroundColor: colors.tertiarySystemFill, borderColor: colors.separator }]}
+        >
+          <View style={[$.buildCardIcon, { backgroundColor: colors.systemGray + '15' }]}>
+            <Text style={{ fontSize: 28 }}>✏️</Text>
+          </View>
+          <Text style={[$.buildCardTitle, { color: colors.label }]}>I'll build it myself</Text>
+          <Text style={[$.buildCardDesc, { color: colors.secondaryLabel }]}>
+            {typeInfo?.name} template with {typeInfo?.desc?.match(/\d+/)?.[0] || 'empty'} step categories. Add your own products and timings.
+          </Text>
+          <View style={[$.buildCardBtn, { backgroundColor: colors.secondarySystemBackground }]}>
+            <Text style={[$.buildCardBtnText, { color: colors.label }]}>Start building →</Text>
+          </View>
+        </Pressable>
       </View>
     );
   };
 
-  // ── Main render ─────────────────────────────────────────────────────
-  const canProceed = step === 0 ? (customSession.trim() || sessionName) : true;
+  // ═══════════════════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════════════════
 
   return (
     <BottomSheet
@@ -326,138 +369,117 @@ export function CreateRoutineSheet({ sheetRef, onCreated }: CreateRoutineSheetPr
       backgroundStyle={{ backgroundColor: colors.secondarySystemBackground }}
       onChange={(idx) => { if (idx === -1) reset(); }}
     >
-      <View style={$.wrapper}>
-        <StepIndicator />
-
-        <BottomSheetScrollView
-          contentContainerStyle={$.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {step === 0 && renderSessionStep()}
-          {step === 1 && renderTypeStep()}
-          {step === 2 && renderBuildStep()}
-        </BottomSheetScrollView>
-
-        {/* Bottom nav */}
-        <View style={[$.bottomBar, { borderTopColor: colors.separator }]}>
-          {step > 0 ? (
-            <Pressable onPress={handleBack} style={$.backBtn}>
-              <Text style={[$.backBtnText, { color: colors.systemBlue }]}>Back</Text>
-            </Pressable>
-          ) : (
-            <View style={$.backBtn} />
-          )}
-
-          {step < 2 ? (
-            <Pressable
-              onPress={handleNext}
-              disabled={!canProceed}
-              style={[$.nextBtn, { backgroundColor: colors.systemBlue }, !canProceed && { opacity: 0.4 }]}
-            >
-              <Text style={$.nextBtnText}>Next</Text>
-            </Pressable>
-          ) : (
-            <Pressable
-              onPress={handleCreate}
-              disabled={submitting}
-              style={[$.nextBtn, { backgroundColor: colors.systemGreen }, submitting && { opacity: 0.5 }]}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#FFF" size="small" />
-              ) : (
-                <Text style={$.nextBtnText}>
-                  {buildMethod === 'jay' ? 'Build with JAY ✨' : buildMethod === 'template' ? 'Create Routine' : 'Create & Add Steps'}
-                </Text>
-              )}
+      <BottomSheetScrollView
+        contentContainerStyle={$.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Header */}
+        <View style={$.header}>
+          {step > 0 && (
+            <Pressable onPress={() => setStep(0)} hitSlop={12}>
+              <Text style={[$.backText, { color: colors.systemBlue }]}>← Back</Text>
             </Pressable>
           )}
+          <Text style={[$.title, { color: colors.label }]}>
+            {step === 0 ? 'New Routine' : 'Build Method'}
+          </Text>
+          <View style={{ width: 50 }} />
         </View>
-      </View>
+
+        {step === 0 ? renderStep0() : renderStep1()}
+
+        <View style={{ height: 40 }} />
+      </BottomSheetScrollView>
     </BottomSheet>
   );
 }
 
-// ── Styles ──────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+// STYLES
+// ═══════════════════════════════════════════════════════════════════════
 
 const $ = StyleSheet.create({
   handle: { width: 36, height: 5, borderRadius: 2.5 },
-  wrapper: { flex: 1 },
-  scrollContent: { paddingHorizontal: SPACE.xl, paddingBottom: 100 },
+  scrollContent: { paddingHorizontal: SPACE.xl, paddingBottom: 40 },
 
-  // Step indicator
-  indicator: {
-    flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
-    gap: 8, paddingVertical: SPACE.md, paddingHorizontal: SPACE.xl,
-  },
-  indicatorItem: { alignItems: 'center', gap: 4 },
-  dot: { height: 8, borderRadius: 4 },
-  dotLabel: { fontSize: 10, fontFamily: 'Outfit-SemiBold', letterSpacing: 0.3 },
-
-  // Step header
-  stepTitle: { fontSize: 24, fontFamily: 'Outfit-Bold', fontWeight: '700', marginTop: SPACE.md },
-  stepSubtitle: { fontSize: 14, fontFamily: 'Outfit', lineHeight: 20, marginTop: 4, marginBottom: SPACE.lg },
-
-  // Session
-  groupedTable: { borderRadius: RADIUS.sm, overflow: 'hidden' },
-  sessionRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: SPACE.lg, paddingVertical: 14,
-  },
-  sessionEmoji: { fontSize: 24, marginRight: SPACE.md },
-  sessionText: { flex: 1 },
-  sessionLabel: { fontSize: 16, fontFamily: 'Outfit-SemiBold' },
-  sessionDesc: { fontSize: 12, fontFamily: 'Outfit', marginTop: 1 },
-  customWrap: {
-    borderRadius: RADIUS.sm, marginTop: SPACE.md, overflow: 'hidden',
-    flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACE.lg,
-  },
-  customLabel: { fontSize: 13, fontFamily: 'Outfit-Medium', marginRight: SPACE.sm },
-  customInput: { flex: 1, fontFamily: 'Outfit', fontSize: 15, paddingVertical: 14 },
-
-  // Type cards
-  typeCard: { borderRadius: RADIUS.md, padding: SPACE.lg, marginBottom: SPACE.sm },
-  typeRow: { flexDirection: 'row', alignItems: 'center' },
-  typeIcon: {
-    width: 40, height: 40, borderRadius: 12,
-    alignItems: 'center', justifyContent: 'center', marginRight: SPACE.md,
-  },
-  typeInfo: { flex: 1 },
-  typeName: { fontSize: 16, fontFamily: 'Outfit-SemiBold' },
-  typeMeta: { fontSize: 12, fontFamily: 'Outfit', marginTop: 1 },
-  typeExpanded: { marginTop: SPACE.sm, paddingLeft: 52 },
-  typeDesc: { fontSize: 13, fontFamily: 'Outfit', lineHeight: 18 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: SPACE.sm },
-  chip: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 5 },
-  chipText: { fontSize: 11, fontFamily: 'Outfit-Medium' },
-  chipMore: { fontSize: 11, fontFamily: 'Outfit', alignSelf: 'center', marginLeft: 4 },
-
-  // Build method
-  buildRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: SPACE.lg, paddingVertical: 16,
-  },
-  buildIcon: {
-    width: 44, height: 44, borderRadius: 12,
-    alignItems: 'center', justifyContent: 'center', marginRight: SPACE.md,
-  },
-  buildText: { flex: 1, marginRight: SPACE.sm },
-  buildLabel: { fontSize: 16, fontFamily: 'Outfit-SemiBold' },
-  buildDesc: { fontSize: 12, fontFamily: 'Outfit', lineHeight: 17, marginTop: 2 },
-
-  // Bottom bar
-  bottomBar: {
+  // Header
+  header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: SPACE.xl, paddingVertical: SPACE.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    backgroundColor: 'transparent',
+    marginBottom: SPACE.lg,
   },
-  backBtn: { width: 60 },
-  backBtnText: { fontSize: 16, fontFamily: 'Outfit-SemiBold' },
-  nextBtn: {
-    paddingHorizontal: 24, paddingVertical: 14,
-    borderRadius: RADIUS.md, minWidth: 120, alignItems: 'center',
+  title: { fontSize: 20, fontFamily: 'Outfit-Bold' },
+  backText: { fontSize: 16, fontFamily: 'Outfit-SemiBold' },
+
+  // Labels
+  label: {
+    fontSize: 11, fontFamily: 'Outfit-SemiBold', letterSpacing: 0.8,
+    textTransform: 'uppercase', marginBottom: SPACE.sm,
   },
-  nextBtnText: { color: '#FFF', fontSize: 16, fontFamily: 'Outfit-SemiBold' },
+  sectionHeader: {
+    fontSize: 18, fontFamily: 'Outfit-Bold', marginBottom: SPACE.md,
+  },
+
+  // Name input
+  inputWrap: { borderRadius: RADIUS.sm, marginBottom: SPACE.xl, overflow: 'hidden' },
+  input: { fontSize: 16, fontFamily: 'Outfit', paddingHorizontal: SPACE.lg, paddingVertical: 14 },
+
+  // Grouped table
+  groupedTable: { borderRadius: RADIUS.sm, overflow: 'hidden', marginBottom: SPACE.sm },
+  row: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: SPACE.lg, paddingVertical: 13, gap: 12,
+  },
+  rowEmoji: { fontSize: 22 },
+  rowTitle: { fontSize: 15, fontFamily: 'Outfit-SemiBold' },
+  rowSub: { fontSize: 12, fontFamily: 'Outfit', marginTop: 1 },
+
+  // Custom session
+  customRow: {
+    borderRadius: RADIUS.sm, marginTop: SPACE.sm, overflow: 'hidden',
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACE.lg, gap: 8,
+  },
+  customInput: { flex: 1, fontFamily: 'Outfit', fontSize: 15, paddingVertical: 13 },
+
+  // Type circle
+  typeCircle: {
+    width: 36, height: 36, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+  },
+
+  // Smart options (highlighted cards)
+  smartCard: {
+    borderRadius: RADIUS.md, padding: SPACE.lg, marginBottom: SPACE.sm,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderWidth: 1,
+  },
+  smartIcon: {
+    width: 48, height: 48, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  smartName: { fontSize: 16, fontFamily: 'Outfit-Bold' },
+  smartDesc: { fontSize: 12, fontFamily: 'Outfit', lineHeight: 16, marginTop: 2 },
+
+  // Step 1: Build method
+  stepTitle: { fontSize: 22, fontFamily: 'Outfit-Bold', marginBottom: 4 },
+  stepSub: { fontSize: 14, fontFamily: 'Outfit', lineHeight: 20, marginBottom: SPACE.xxl },
+
+  buildCard: {
+    borderRadius: 16, padding: SPACE.xl, marginBottom: SPACE.lg,
+    alignItems: 'center', borderWidth: 1,
+  },
+  buildCardIcon: {
+    width: 64, height: 64, borderRadius: 20,
+    alignItems: 'center', justifyContent: 'center', marginBottom: SPACE.md,
+  },
+  buildCardTitle: { fontSize: 18, fontFamily: 'Outfit-Bold', marginBottom: 4 },
+  buildCardDesc: {
+    fontSize: 13, fontFamily: 'Outfit', lineHeight: 18,
+    textAlign: 'center', marginBottom: SPACE.lg,
+  },
+  buildCardBtn: {
+    paddingHorizontal: 28, paddingVertical: 13,
+    borderRadius: RADIUS.md, alignItems: 'center', minWidth: 180,
+  },
+  buildCardBtnText: { color: '#FFF', fontSize: 16, fontFamily: 'Outfit-SemiBold' },
 });
