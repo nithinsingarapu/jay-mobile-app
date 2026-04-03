@@ -14,6 +14,7 @@ import {
   RefreshControl,
   Pressable,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -38,7 +39,6 @@ import { MonthlyCostPill } from '../../components/routine/MonthlyCostPill';
 import { StatCards } from '../../components/routine/StatCards';
 import { StatsHero } from '../../components/routine/StatsHero';
 import { StatsPeriodToggle } from '../../components/routine/StatsPeriodToggle';
-import { ActiveRoutineIndicator } from '../../components/routine/ActiveRoutineIndicator';
 import FeaturedRoutineCard from '../../components/routine/FeaturedRoutineCard';
 import CategoryRow from '../../components/routine/CategoryRow';
 import TipCard from '../../components/routine/TipCard';
@@ -282,27 +282,6 @@ export default function RoutineScreen() {
           onSelect={store.setSelectedRoutineId}
         />
 
-        {/* Active indicator */}
-        {currentRoutine && (
-          <View style={s.sectionPad}>
-            <ActiveRoutineIndicator
-              name={currentRoutine.name}
-              period={currentRoutine.period}
-              onPress={() =>
-                router.push({
-                  pathname: '/(screens)/routine-detail',
-                  params: { routineId: currentRoutine.id },
-                })
-              }
-            />
-          </View>
-        )}
-
-        {/* Progress ring */}
-        <View style={s.ringContainer}>
-          <ProgressRing completed={completed} total={total} />
-        </View>
-
         {/* Day dots */}
         <View style={s.sectionPad}>
           <DayDots data={weekDots} />
@@ -317,12 +296,10 @@ export default function RoutineScreen() {
           />
         </View>
 
-        {/* Conflicts */}
-        {store.conflicts.length > 0 && (
-          <View style={s.sectionPad}>
-            <ConflictNotice conflicts={store.conflicts} />
-          </View>
-        )}
+        {/* Progress ring */}
+        <View style={s.ringContainer}>
+          <ProgressRing completed={completed} total={total} />
+        </View>
 
         {/* Steps */}
         {currentRoutine?.steps.map((step, i) => {
@@ -354,6 +331,13 @@ export default function RoutineScreen() {
               loading={store.completingAll}
               onPress={() => store.completeAllSteps(currentRoutine.id)}
             />
+          </View>
+        )}
+
+        {/* Conflicts */}
+        {store.conflicts.length > 0 && (
+          <View style={s.sectionPad}>
+            <ConflictNotice conflicts={store.conflicts} />
           </View>
         )}
 
@@ -401,15 +385,22 @@ export default function RoutineScreen() {
 
       {/* Quick tips */}
       <Text style={[s.sectionTitle, { color: colors.label }]}>Quick Tips</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.horizontalScroll}
-      >
-        {TIPS.slice(0, 6).map((tip) => (
-          <TipCard key={tip.id} tip={tip} />
+      <View style={[{ marginHorizontal: SPACE.lg, backgroundColor: colors.secondarySystemBackground, borderRadius: 12, overflow: 'hidden' }]}>
+        {TIPS.slice(0, 6).map((tip, i) => (
+          <Pressable
+            key={tip.id}
+            style={[{
+              flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12,
+            }, i < 5 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.separator }]}
+          >
+            <Text style={{ fontSize: 20, marginRight: 12 }}>{tip.emoji}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontFamily: 'Outfit-SemiBold', color: colors.label }}>{tip.title}</Text>
+              <Text numberOfLines={1} style={{ fontSize: 12, fontFamily: 'Outfit', color: colors.secondaryLabel, marginTop: 1 }}>{tip.body}</Text>
+            </View>
+          </Pressable>
         ))}
-      </ScrollView>
+      </View>
 
       <View style={{ height: 40 }} />
     </ScrollView>
@@ -442,6 +433,9 @@ export default function RoutineScreen() {
       );
     }
 
+    const activeRoutines = store.routines.filter(r => r.is_active);
+    const savedRoutines = store.routines.filter(r => !r.is_active);
+
     return (
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -454,28 +448,124 @@ export default function RoutineScreen() {
         }
         contentContainerStyle={s.routinesContent}
       >
-        {store.routines.map((routine) => (
-          <RoutineCard
-            key={routine.id}
-            routine={routine}
-            isActive={routine.id === currentRoutine?.id}
-            onPress={() =>
-              router.push({
-                pathname: '/(screens)/routine-detail',
-                params: { routineId: routine.id },
-              })
-            }
-          />
-        ))}
+        {/* Create new routine button */}
+        <Pressable
+          onPress={openCreateSheet}
+          style={[{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16,
+            backgroundColor: colors.systemBlue + '10', borderRadius: 14, borderWidth: 1,
+            borderColor: colors.systemBlue + '30', borderStyle: 'dashed' }]}
+        >
+          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.systemBlue,
+            alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#FFF', fontSize: 22, fontWeight: '300' }}>+</Text>
+          </View>
+          <View>
+            <Text style={{ fontSize: 16, fontFamily: 'Outfit-SemiBold', color: colors.label }}>New Routine</Text>
+            <Text style={{ fontSize: 12, fontFamily: 'Outfit', color: colors.secondaryLabel }}>Build with JAY or from scratch</Text>
+          </View>
+        </Pressable>
+
+        {/* Active Routines */}
+        {activeRoutines.length > 0 && (
+          <>
+            <Text style={[s.sectionTitle, { marginTop: SPACE.xl, marginBottom: SPACE.sm }]}>
+              Active ({activeRoutines.length})
+            </Text>
+            {activeRoutines.map(routine => (
+              <View key={routine.id} style={{ marginBottom: 10 }}>
+                <RoutineCard
+                  routine={routine}
+                  isActive={true}
+                  onPress={() => router.push({ pathname: '/(screens)/routine-detail', params: { routineId: routine.id } })}
+                />
+                {/* Action row below card */}
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 6, paddingHorizontal: 4 }}>
+                  <Pressable
+                    onPress={() => router.push({ pathname: '/(screens)/routine-edit', params: { routineId: routine.id } })}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 10,
+                      backgroundColor: colors.tertiarySystemFill, borderRadius: 8 }}>
+                    <Text style={{ fontSize: 12, fontFamily: 'Outfit-Medium', color: colors.secondaryLabel }}>Edit</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      Alert.alert('Deactivate?', 'This routine will be saved but won\'t track daily progress.', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Deactivate', style: 'destructive', onPress: () => store.deleteRoutine(routine.id) },
+                      ]);
+                    }}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 10,
+                      backgroundColor: colors.tertiarySystemFill, borderRadius: 8 }}>
+                    <Text style={{ fontSize: 12, fontFamily: 'Outfit-Medium', color: colors.systemOrange }}>Deactivate</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      store.createRoutine({
+                        name: `${routine.name} (copy)`,
+                        period: routine.period,
+                        routine_type: routine.routine_type,
+                        description: routine.description || undefined,
+                      });
+                    }}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 10,
+                      backgroundColor: colors.tertiarySystemFill, borderRadius: 8 }}>
+                    <Text style={{ fontSize: 12, fontFamily: 'Outfit-Medium', color: colors.secondaryLabel }}>Duplicate</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+          </>
+        )}
+
+        {/* Saved / Inactive Routines */}
+        <Text style={[s.sectionTitle, { marginTop: SPACE.xl, marginBottom: SPACE.sm, color: colors.label }]}>
+          Saved
+        </Text>
+        {savedRoutines.length === 0 ? (
+          <View style={{ padding: 20, alignItems: 'center', backgroundColor: colors.secondarySystemBackground,
+            borderRadius: 12 }}>
+            <Text style={{ fontSize: 13, fontFamily: 'Outfit', color: colors.tertiaryLabel }}>
+              Deactivated routines will appear here
+            </Text>
+          </View>
+        ) : (
+          savedRoutines.map(routine => (
+            <View key={routine.id} style={{ marginBottom: 10 }}>
+              <RoutineCard routine={routine} isActive={false}
+                onPress={() => router.push({ pathname: '/(screens)/routine-detail', params: { routineId: routine.id } })} />
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 6, paddingHorizontal: 4 }}>
+                <Pressable
+                  onPress={() => {
+                    store.createRoutine({
+                      name: routine.name || 'Routine',
+                      period: routine.period,
+                      routine_type: routine.routine_type,
+                    });
+                  }}
+                  style={{ paddingVertical: 6, paddingHorizontal: 10,
+                    backgroundColor: colors.systemBlue + '15', borderRadius: 8 }}>
+                  <Text style={{ fontSize: 12, fontFamily: 'Outfit-Medium', color: colors.systemBlue }}>Activate</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    Alert.alert('Delete?', 'This routine will be permanently removed.', [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Delete', style: 'destructive', onPress: () => store.deleteRoutine(routine.id) },
+                    ]);
+                  }}
+                  style={{ paddingVertical: 6, paddingHorizontal: 10,
+                    backgroundColor: colors.systemRed + '10', borderRadius: 8 }}>
+                  <Text style={{ fontSize: 12, fontFamily: 'Outfit-Medium', color: colors.systemRed }}>Delete</Text>
+                </Pressable>
+              </View>
+            </View>
+          ))
+        )}
 
         {/* Stats summary */}
         {store.stats && (
           <>
-            <View style={s.statsDivider} />
-            <StatsPeriodToggle
-              active={statsPeriodDays}
-              onChange={setStatsPeriodDays}
-            />
+            <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.separator, marginVertical: SPACE.xl }} />
+            <StatsPeriodToggle active={statsPeriodDays} onChange={setStatsPeriodDays} />
             <View style={{ height: SPACE.md }} />
             <StatsHero streak={store.streak.current_streak} />
             <View style={s.sectionPad}>

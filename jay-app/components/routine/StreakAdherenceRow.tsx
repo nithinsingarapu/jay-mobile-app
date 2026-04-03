@@ -15,18 +15,22 @@ export function StreakAdherenceRow({ streak, bestStreak, adherence }: StreakAdhe
     <View style={s.row}>
       {/* Streak card */}
       <View style={[s.card, { backgroundColor: colors.secondarySystemBackground }]}>
-        <View style={[s.tint, { backgroundColor: colors.systemOrange + '10' }]} />
-        <Text style={[s.bigNumber, { color: colors.systemOrange }]}>{streak}</Text>
-        <Text style={[s.label, { color: colors.secondaryLabel }]}>Day streak</Text>
-        <Text style={[s.sub, { color: colors.tertiaryLabel }]}>Best: {bestStreak}</Text>
+        <View style={[s.tint, { backgroundColor: colors.systemOrange + '08' }]} />
+        <View style={s.cardRow}>
+          <Text style={s.emoji}>🔥</Text>
+          <Text style={[s.bigNumber, { color: colors.systemOrange }]}>{streak}</Text>
+          <Text style={[s.label, { color: colors.secondaryLabel }]}>Day streak · Best: {bestStreak}</Text>
+        </View>
       </View>
 
       {/* Adherence card */}
       <View style={[s.card, { backgroundColor: colors.secondarySystemBackground }]}>
-        <View style={[s.tint, { backgroundColor: colors.systemGreen + '10' }]} />
-        <Text style={[s.bigNumber, { color: colors.systemGreen }]}>{adherence}%</Text>
-        <Text style={[s.label, { color: colors.secondaryLabel }]}>Adherence</Text>
-        <Text style={[s.sub, { color: colors.tertiaryLabel }]}>This week</Text>
+        <View style={[s.tint, { backgroundColor: colors.systemBlue + '08' }]} />
+        <View style={s.cardRow}>
+          <Text style={s.emoji}>📊</Text>
+          <Text style={[s.bigNumber, { color: colors.systemBlue }]}>{adherence}%</Text>
+          <Text style={[s.label, { color: colors.secondaryLabel }]}>Adherence · This week</Text>
+        </View>
       </View>
     </View>
   );
@@ -40,25 +44,28 @@ const s = StyleSheet.create({
   card: {
     flex: 1,
     borderRadius: 14,
-    padding: 16,
+    padding: 12,
     overflow: 'hidden',
   },
   tint: {
     ...StyleSheet.absoluteFillObject,
   },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  emoji: {
+    fontSize: 14,
+  },
   bigNumber: {
-    fontSize: 36,
+    fontSize: 24,
     fontWeight: '800',
     fontFamily: 'Outfit-Bold',
   },
   label: {
     fontSize: 13,
     fontFamily: 'Outfit',
-    marginTop: 2,
-  },
-  sub: {
-    fontSize: 11,
-    fontFamily: 'Outfit',
-    marginTop: 2,
+    flex: 1,
   },
 });
