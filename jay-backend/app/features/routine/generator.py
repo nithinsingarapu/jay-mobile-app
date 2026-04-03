@@ -220,9 +220,28 @@ async def generate_routine(
     for period in periods:
         template = type_info.get(f"{period}_template", [])
 
-        # 5. Query products with rich data — NO budget constraint
+        # 5. Query products — from template + any categories mentioned in user's message
+        categories_to_search = list(template)
+
+        # Parse user message for additional product categories to search
+        if data.additional_instructions:
+            msg_lower = data.additional_instructions.lower()
+            extra_cats = {
+                'lip': 'lip_balm', 'lipbalm': 'lip_balm', 'lip balm': 'lip_balm',
+                'sunscreen': 'sunscreen', 'spf': 'sunscreen', 'sun': 'sunscreen',
+                'cleanser': 'cleanser', 'face wash': 'cleanser',
+                'serum': 'serum', 'vitamin c': 'serum', 'niacinamide': 'serum',
+                'moisturizer': 'moisturizer', 'cream': 'moisturizer',
+                'retinol': 'treatment', 'retinoid': 'treatment',
+                'exfoliat': 'exfoliant', 'aha': 'exfoliant', 'bha': 'exfoliant',
+                'toner': 'toner', 'eye': 'eye_cream', 'mask': 'sleeping_mask',
+            }
+            for keyword, cat in extra_cats.items():
+                if keyword in msg_lower and cat not in categories_to_search:
+                    categories_to_search.append(cat)
+
         available_products_text = ""
-        for cat in template:
+        for cat in categories_to_search:
             available_products_text += await _get_products_for_category(
                 db, cat, allergies, skin_type
             )

@@ -4,6 +4,6 @@ CV MODELS : Orbo.ai (Indian Specific), Perfect Corp (Fastest SDK integration)
 --intelligence for every pixel in you -- La petite cochen
 
 //BUILD A FILE UPLOAD FEATURE IN JAY_CHAT
-//WORK ON Routine Generator - AI Preciseness
+//WORK ON Routine Generator - AI Preciseness // Routine selector, planner, executor (Routines must be planned, Routine 1 for whenever i go out, routine 2 for when its a holiday and homeday), Add Reminder.
 //WORK ON GETTING LIVE DATA PIPELINES FOR DISCOVER SECTION.
 //WORK ON RESEARCH ENGINE 
