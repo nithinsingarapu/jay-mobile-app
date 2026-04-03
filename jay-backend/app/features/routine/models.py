@@ -88,7 +88,7 @@ class RoutineGeneration(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[str] = mapped_column(String(36), nullable=False)
     routine_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
-    period: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    period: Mapped[str | None] = mapped_column(String(30), nullable=True)
     input_profile_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     generated_routine: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     was_accepted: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
