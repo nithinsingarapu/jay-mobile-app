@@ -201,24 +201,12 @@ export default function BuildWithJayScreen() {
     opacity: orbOpacity.value,
   }));
 
-  // Map session names to API period values
-  const sessionToPeriod = (session: string | undefined): string => {
-    const map: Record<string, string> = {
-      morning: 'am', afternoon: 'am',
-      evening: 'pm', night: 'pm',
-      full_day: 'both', both: 'both',
-      am: 'am', pm: 'pm',
-    };
-    return map[session || ''] || 'both';
-  };
-
-  // Trigger generation on mount
+  // Trigger generation on mount — send raw session name, let backend handle mapping
   useEffect(() => {
-    const session = params.sessionName || params.period || '';
-    const period = sessionToPeriod(session);
+    const session = params.sessionName || params.period || 'both';
     const routineType = (params.routineType as string) || 'auto';
     const message = params.messageToJay?.trim() || undefined;
-    generateRoutine({ period, routine_type: routineType, additional_instructions: message });
+    generateRoutine({ period: session, routine_type: routineType, additional_instructions: message });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.sessionName, params.period, params.routineType]);
 
@@ -244,11 +232,10 @@ export default function BuildWithJayScreen() {
   }, [saveGeneratedRoutine, router]);
 
   const handleRegenerate = useCallback(() => {
-    const session = params.sessionName || params.period || '';
-    const period = sessionToPeriod(session);
+    const session = params.sessionName || params.period || 'both';
     const routineType = (params.routineType as string) || 'auto';
     const message = params.messageToJay?.trim() || undefined;
-    generateRoutine({ period, routine_type: routineType, additional_instructions: message });
+    generateRoutine({ period: session, routine_type: routineType, additional_instructions: message });
   }, [params.sessionName, params.period, params.routineType, params.messageToJay, generateRoutine]);
 
   const progressSteps = [

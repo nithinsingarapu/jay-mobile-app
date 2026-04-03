@@ -287,20 +287,17 @@ export const useRoutineStore = create<RoutineState>((set, get) => ({
         }
       };
 
-      if (hasPerField) {
+      // Use the original session name as the period for saving
+      const sessionName = generatedRoutine.period || 'morning';
+
+      if (hasPerField && (sessionName === 'both' || sessionName === 'full_day')) {
+        // Full day → split into morning + night
         if (amSteps.length > 0) await savePeriod('morning', amSteps);
         if (pmSteps.length > 0) await savePeriod('night', pmSteps);
       } else {
-        // No period field on steps — use the generated routine's period to decide
-        const genPeriod = generatedRoutine.period || 'both';
-        if (genPeriod === 'am' || genPeriod === 'morning') {
-          await savePeriod('morning', steps);
-        } else if (genPeriod === 'pm' || genPeriod === 'night' || genPeriod === 'evening') {
-          await savePeriod('night', steps);
-        } else {
-          // 'both' or unknown — save as morning by default
-          await savePeriod('morning', steps);
-        }
+        // Single session — save ALL steps under the session name
+        // This preserves afternoon, evening, custom names
+        await savePeriod(sessionName, steps);
       }
 
       set({ generatedRoutine: null });

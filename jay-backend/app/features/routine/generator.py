@@ -171,7 +171,30 @@ async def generate_routine(
         routine_type = _infer_routine_type(profile)
 
     type_info = ROUTINE_TYPES.get(routine_type, ROUTINE_TYPES["complete"])
-    periods = ["am", "pm"] if data.period == "both" else [data.period]
+
+    # Map session names to generation periods
+    # "full_day" or "both" → generate AM + PM separately
+    # "morning" or "am" → single AM generation
+    # "night" or "pm" → single PM generation
+    # "afternoon" or "evening" → single generation, but DON'T use standard templates
+    #   (these are supplementary sessions — JAY should advise based on gaps)
+    session_name = data.period  # raw session name from frontend
+    is_supplementary = session_name in ('afternoon', 'evening')
+
+    if session_name in ('both', 'full_day'):
+        periods = ['am', 'pm']
+    elif session_name in ('morning', 'am'):
+        periods = ['am']
+    elif session_name in ('night', 'pm'):
+        periods = ['pm']
+    elif is_supplementary:
+        # Afternoon/Evening are supplementary — generate as a single custom session
+        # Use 'am' template base for afternoon, 'pm' for evening, but templates will be overridden
+        periods = ['am' if session_name == 'afternoon' else 'pm']
+    else:
+        # Custom session name — treat as single period, let JAY decide
+        periods = ['am']
+        is_supplementary = True
 
     # 3. Build rich user context
     user_context = await build_user_context(user.id, db)
@@ -243,16 +266,19 @@ async def generate_routine(
         template = type_info.get(f"{period}_template", [])
 
         # 5. Decide which product categories to search
-        # If "auto" type with existing routines → search ALL categories so JAY can pick freely
-        # If specific type → use template + any extras from user message
         has_existing = len(existing_routines) > 0
         is_auto = data.routine_type == 'auto'
 
-        if is_auto and has_existing:
-            # JAY decides — give it ALL product categories to choose from
+        if is_supplementary or (is_auto and has_existing):
+            # Supplementary session (afternoon/evening) OR auto with existing routines
+            # → Search ALL categories — let JAY advise what's needed based on gaps
             categories_to_search = list(ALL_CATEGORIES)
+            # Override template — don't force standard AM/PM steps
+            template = []
+        elif template:
+            categories_to_search = list(template)
         else:
-            categories_to_search = list(template) if template else list(ALL_CATEGORIES)
+            categories_to_search = list(ALL_CATEGORIES)
 
         # Also parse user message for specific categories they mention
         if data.additional_instructions:
@@ -282,12 +308,12 @@ async def generate_routine(
         app_order = APPLICATION_ORDER.get(period, {})
         prompt = ROUTINE_GENERATION_PROMPT
         replacements = {
-            "{period}": period.upper(),
+            "{period}": session_name.upper() if is_supplementary else period.upper(),
             "{user_context}": user_context,
             "{routine_type}": routine_type,
             "{type_description}": type_info.get("description", ""),
-            "{template_steps}": ", ".join(template) if template else "YOU DECIDE — analyze gaps and recommend only what's needed",
-            "{max_steps}": str(type_info.get("max_steps", 12 if is_auto else 7)),
+            "{template_steps}": ", ".join(template) if template else "YOU DECIDE — this is a {} session. Analyze the user's existing routines, identify gaps, and recommend ONLY what's genuinely needed for this time of day. Could be 1 step or 5 — whatever makes sense.".format(session_name),
+            "{max_steps}": str(type_info.get("max_steps", 12) if (is_supplementary or is_auto) else type_info.get("max_steps", 7)),
             "{top_goal}": top_goal,
             "{concerns}": concerns,
             "{additional_instructions}": data.additional_instructions or "None",
