@@ -1,20 +1,7 @@
-/**
- * Routine Screen — 4-segment hub
- *   Today  |  Explore  |  My Routines  |  Learn
- *
- * Uses store.routines (array), store.todayStatuses (record),
- * store.selectedRoutineId (string | null).
- */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  RefreshControl,
-  Pressable,
-  ActivityIndicator,
-  Alert,
+  View, Text, ScrollView, StyleSheet, RefreshControl,
+  Pressable, ActivityIndicator, Alert, Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -23,73 +10,63 @@ import BottomSheet from '@gorhom/bottom-sheet';
 import { useTheme } from '../../lib/theme';
 import { SPACE } from '../../constants/theme';
 import { useRoutineStore } from '../../stores/routineStore';
-import { useUserStore } from '../../stores/userStore';
 
-// ── Components ──────────────────────────────────────────────────────────
 import RoutineHeader from '../../components/routine/RoutineHeader';
 import SegmentedControl from '../../components/routine/SegmentedControl';
-import ProgressRing from '../../components/routine/ProgressRing';
-import StepRow from '../../components/routine/StepRow';
+import HeroRing from '../../components/routine/HeroRing';
+import StatPill from '../../components/routine/StatPill';
+import StepTable from '../../components/routine/StepTable';
+import StepTableRow from '../../components/routine/StepTableRow';
 import CompleteAllButton from '../../components/routine/CompleteAllButton';
-import { RoutineCard } from '../../components/routine/RoutineCard';
-import { StreakAdherenceRow } from '../../components/routine/StreakAdherenceRow';
-import { DayDots, type DayDotData } from '../../components/routine/DayDots';
 import { ConflictNotice } from '../../components/routine/ConflictNotice';
-import { MonthlyCostPill } from '../../components/routine/MonthlyCostPill';
-import { StatCards } from '../../components/routine/StatCards';
+import RoutineManagementCard from '../../components/routine/RoutineManagementCard';
 import { StatsHero } from '../../components/routine/StatsHero';
+import { StatCards } from '../../components/routine/StatCards';
 import { StatsPeriodToggle } from '../../components/routine/StatsPeriodToggle';
 import FeaturedRoutineCard from '../../components/routine/FeaturedRoutineCard';
 import CategoryRow from '../../components/routine/CategoryRow';
-import TipCard from '../../components/routine/TipCard';
 import OrderDiagram from '../../components/routine/OrderDiagram';
 import ConflictRule from '../../components/routine/ConflictRule';
 import IngredientSpotlight from '../../components/routine/IngredientSpotlight';
 import SeasonalCard from '../../components/routine/SeasonalCard';
 import ArticleCard from '../../components/routine/ArticleCard';
-
-// ── Sheets ──────────────────────────────────────────────────────────────
+import TipCard from '../../components/routine/TipCard';
 import { CreateRoutineSheet, type CreateRoutineData } from '../../components/routine/sheets/CreateRoutineSheet';
 import { SkipReasonSheet } from '../../components/routine/sheets/SkipReasonSheet';
-
-// ── Data ────────────────────────────────────────────────────────────────
+import { ROUTINE_CATEGORIES, FEATURED_ROUTINE } from '../../data/routineLibrary';
 import {
-  ROUTINE_CATEGORIES,
-  FEATURED_ROUTINE,
-} from '../../data/routineLibrary';
-import {
-  TIPS,
-  AM_ORDER,
-  PM_ORDER,
-  CONFLICTS,
-  INGREDIENT_SPOTLIGHTS,
-  SEASONAL_GUIDES,
-  SCIENCE_ARTICLES,
+  TIPS, AM_ORDER, PM_ORDER, CONFLICTS,
+  INGREDIENT_SPOTLIGHTS, SEASONAL_GUIDES, SCIENCE_ARTICLES,
 } from '../../data/learnContent';
 
-// ── Constants ───────────────────────────────────────────────────────────
-const SEGMENTS = ['Today', 'Explore', 'My Routines', 'Learn'] as const;
+const SEGMENTS = ['Today', 'Library', 'My Routines'];
 
-// ═══════════════════════════════════════════════════════════════════════════
-// SESSION TABS — horizontal pill selector for AM / PM / custom sessions
-// ═══════════════════════════════════════════════════════════════════════════
+function formatCategory(raw: string): string {
+  return raw
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/* ── Session Tabs ─────────────────────────────────────────────── */
+
 function SessionTabs({
   routines,
   selectedId,
   onSelect,
+  colors,
 }: {
-  routines: { id: string; name: string | null; period: string }[];
+  routines: any[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  colors: any;
 }) {
-  const { colors } = useTheme();
   if (routines.length <= 1) return null;
 
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={s.sessionRow}
+      contentContainerStyle={styles.sessionRow}
     >
       {routines.map((r) => {
         const active = r.id === selectedId;
@@ -98,17 +75,21 @@ function SessionTabs({
             key={r.id}
             onPress={() => onSelect(r.id)}
             style={[
-              s.sessionPill,
-              { backgroundColor: active ? colors.systemBlue : colors.secondarySystemFill },
+              styles.sessionPill,
+              {
+                backgroundColor: active
+                  ? colors.systemBlue
+                  : colors.secondarySystemFill,
+              },
             ]}
           >
             <Text
               style={[
-                s.sessionPillText,
-                { color: active ? '#FFFFFF' : colors.label },
+                styles.sessionPillText,
+                { color: active ? '#fff' : colors.label },
               ]}
             >
-              {r.name ?? r.period.toUpperCase()}
+              {r.name}
             </Text>
           </Pressable>
         );
@@ -117,50 +98,69 @@ function SessionTabs({
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// MAIN SCREEN
-// ═══════════════════════════════════════════════════════════════════════════
+/* ── Main Screen ──────────────────────────────────────────────── */
+
 export default function RoutineScreen() {
+  const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { colors } = useTheme();
-  const store = useRoutineStore();
-  const { user } = useUserStore();
 
-  // ── Local state ─────────────────────────────────────────────────────
+  const store = useRoutineStore();
+  const {
+    routines, todayStatuses, selectedRoutineId, streak, stats,
+    conflicts, isLoading, completingAll,
+    init, refresh, completeStep, skipStep, completeAllSteps,
+    createRoutine, deleteRoutine, loadStats, loadCost, loadConflicts,
+    setSelectedRoutineId, setActiveSegment: storeSetSegment,
+  } = store;
+
   const [activeSegment, setActiveSegment] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [skipStepId, setSkipStepId] = useState<string | null>(null);
   const [statsPeriodDays, setStatsPeriodDays] = useState(30);
 
-  // ── Sheet refs ──────────────────────────────────────────────────────
   const createSheetRef = useRef<BottomSheet>(null);
   const skipSheetRef = useRef<BottomSheet>(null);
 
-  // ── Init ────────────────────────────────────────────────────────────
+  /* ── Effects ──────────────────────────────────────────────── */
+
   useEffect(() => {
-    store.init();
+    init();
   }, []);
 
   useEffect(() => {
-    store.loadStats(statsPeriodDays);
+    loadStats(statsPeriodDays);
   }, [statsPeriodDays]);
 
-  // ── Derived ─────────────────────────────────────────────────────────
-  const currentRoutine = useMemo(
-    () => store.routines.find((r) => r.id === store.selectedRoutineId) ?? store.routines[0] ?? null,
-    [store.routines, store.selectedRoutineId],
-  );
-  const todayStatus = currentRoutine
-    ? store.todayStatuses[currentRoutine.id] ?? null
-    : null;
+  /* ── Derived ──────────────────────────────────────────────── */
 
-  // ── Handlers ────────────────────────────────────────────────────────
+  const currentRoutine = useMemo(
+    () => routines.find((r) => r.id === selectedRoutineId) ?? routines[0] ?? null,
+    [routines, selectedRoutineId],
+  );
+
+  const todayStatus = useMemo(
+    () => (currentRoutine ? todayStatuses[currentRoutine.id] ?? null : null),
+    [currentRoutine, todayStatuses],
+  );
+
+  const activeRoutines = useMemo(
+    () => routines.filter((r) => r.is_active),
+    [routines],
+  );
+
+  const savedRoutines = useMemo(
+    () => routines.filter((r) => !r.is_active),
+    [routines],
+  );
+
+  /* ── Handlers ─────────────────────────────────────────────── */
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await store.refresh();
+    await refresh();
     setRefreshing(false);
-  }, []);
+  }, [refresh]);
 
   const handleCreateRoutine = useCallback(
     async (data: CreateRoutineData) => {
@@ -168,40 +168,31 @@ export default function RoutineScreen() {
       if (data.buildMethod === 'jay') {
         router.push({
           pathname: '/(screens)/build-with-jay',
-          params: {
-            sessionName: data.sessionName,
-            routineType: data.routineType,
-          },
-        });
-      } else {
-        const routine = await store.createRoutine({
-          name: `${data.sessionName} — ${data.routineTypeName}`,
-          period: data.sessionName,
-          routine_type: data.routineType,
-        });
-        if (routine) {
-          store.setSelectedRoutineId(routine.id);
-          if (data.buildMethod === 'scratch') {
-            router.push({
-              pathname: '/(screens)/routine-edit',
-              params: { routineId: routine.id },
-            });
-          }
-        }
+          params: { sessionName: data.sessionName, routineType: data.routineType },
+        } as any);
+        return;
+      }
+      const created = await createRoutine({
+        name: `${data.sessionName} — ${data.routineTypeName}`,
+        period: data.sessionName,
+        routine_type: data.routineType,
+      });
+      if (data.buildMethod === 'scratch' && created) {
+        router.push({ pathname: '/(screens)/routine-edit', params: { routineId: created.id } } as any);
       }
     },
-    [router, store],
+    [createRoutine, router],
   );
 
   const handleSkip = useCallback(
     (reason: string) => {
-      if (skipStepId && currentRoutine) {
-        store.skipStep(currentRoutine.id, skipStepId, reason);
+      if (currentRoutine && skipStepId) {
+        skipStep(currentRoutine.id, skipStepId, reason);
       }
-      setSkipStepId(null);
       skipSheetRef.current?.close();
+      setSkipStepId(null);
     },
-    [skipStepId, currentRoutine, store],
+    [currentRoutine, skipStepId, skipStep],
   );
 
   const openCreateSheet = useCallback(() => {
@@ -209,171 +200,130 @@ export default function RoutineScreen() {
   }, []);
 
   const handleTemplatePress = useCallback(
-    (templateId: string) => {
-      router.push({
-        pathname: '/(screens)/routine-template',
-        params: { templateId },
-      });
+    (id: string) => {
+      router.push({ pathname: '/routine-template', params: { id } });
     },
     [router],
   );
 
-  // ── Day dots for the week ───────────────────────────────────────────
-  const weekDots = useMemo<DayDotData[]>(() => {
-    const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-    const today = new Date().getDay(); // 0=Sun
-    const mondayOffset = today === 0 ? 6 : today - 1;
-    return days.map((day, i) => {
-      let status: DayDotData['status'] = 'none';
-      if (i < mondayOffset) status = 'complete';
-      if (i === mondayOffset) status = 'today';
-      return { day, status };
-    });
-  }, []);
+  /* ── Today Tab ────────────────────────────────────────────── */
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // TODAY
-  // ═══════════════════════════════════════════════════════════════════════
   const renderToday = () => {
-    if (store.routines.length === 0) {
+    if (!routines.length) {
       return (
-        <ScrollView
-          contentContainerStyle={s.emptyContainer}
-          showsVerticalScrollIndicator={false}
-        >
-          <Text style={[s.emptyEmoji]}>🧴</Text>
-          <Text style={[s.emptyTitle, { color: colors.label }]}>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyEmoji}>🧴</Text>
+          <Text style={[styles.emptyTitle, { color: colors.label }]}>
             No routines yet
           </Text>
-          <Text style={[s.emptyBody, { color: colors.secondaryLabel }]}>
-            Build your first skincare routine — JAY can create one for you based
-            on your skin profile.
+          <Text style={[styles.emptyBody, { color: colors.secondaryLabel }]}>
+            Create your first skincare routine to start tracking your progress.
           </Text>
           <Pressable
-            style={[s.emptyButton, { backgroundColor: colors.systemBlue }]}
+            style={[styles.emptyButton, { backgroundColor: colors.systemBlue }]}
             onPress={openCreateSheet}
           >
-            <Text style={s.emptyButtonText}>Create your first routine</Text>
+            <Text style={styles.emptyButtonText}>Create Routine</Text>
           </Pressable>
-        </ScrollView>
+        </View>
       );
     }
 
-    const completed = todayStatus?.completed_steps ?? 0;
-    const total = todayStatus?.total_steps ?? 0;
-    const allDone = total > 0 && completed >= total;
+    const completedSteps = todayStatus?.completed_steps ?? 0;
+    const totalSteps = todayStatus?.total_steps ?? 0;
 
     return (
       <ScrollView
-        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.todayContent}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.label}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        contentContainerStyle={s.todayContent}
       >
-        {/* Session tabs */}
         <SessionTabs
-          routines={store.routines}
+          routines={routines}
           selectedId={currentRoutine?.id ?? null}
-          onSelect={store.setSelectedRoutineId}
+          onSelect={setSelectedRoutineId}
+          colors={colors}
         />
 
-        {/* Day dots */}
-        <View style={s.sectionPad}>
-          <DayDots data={weekDots} />
-        </View>
+        <HeroRing completed={completedSteps} total={totalSteps} />
 
-        {/* Streak + Adherence */}
-        <View style={s.sectionPad}>
-          <StreakAdherenceRow
-            streak={store.streak.current_streak}
-            bestStreak={store.streak.longest_streak}
-            adherence={store.stats?.adherence_percentage ?? 0}
+        <View style={styles.statPillsRow}>
+          <StatPill
+            emoji="🔥"
+            value={String(streak.current_streak)}
+            label="day streak"
+            tintColor={colors.systemOrange}
+          />
+          <StatPill
+            emoji="📊"
+            value={`${stats?.adherence_percentage ?? 0}%`}
+            label="this week"
+            tintColor={colors.systemBlue}
           />
         </View>
 
-        {/* Progress ring */}
-        <View style={s.ringContainer}>
-          <ProgressRing completed={completed} total={total} />
-        </View>
-
-        {/* Steps */}
-        {currentRoutine?.steps.map((step, i) => {
-          const stepStatus = todayStatus?.steps.find(
-            (ss) => ss.step_id === step.id,
-          );
-          return (
-            <StepRow
-              key={step.id}
-              step={step}
-              todayStep={stepStatus}
-              onComplete={() =>
-                store.completeStep(currentRoutine.id, step.id)
-              }
-              onLongPress={() => {
-                setSkipStepId(step.id);
-                skipSheetRef.current?.expand();
-              }}
-              isLast={i === currentRoutine.steps.length - 1}
-            />
-          );
-        })}
-
-        {/* Complete all */}
-        {currentRoutine && total > 0 && (
-          <View style={s.sectionPad}>
-            <CompleteAllButton
-              allDone={allDone}
-              loading={store.completingAll}
-              onPress={() => store.completeAllSteps(currentRoutine.id)}
-            />
-          </View>
+        {currentRoutine && (
+          <StepTable
+            title={currentRoutine.name ?? 'Routine'}
+            badge={currentRoutine.period?.toUpperCase()}
+          >
+            {currentRoutine.steps.map((step: any, idx: number) => {
+              const todayStep = todayStatus?.steps?.find(
+                (s: any) => s.step_id === step.id,
+              );
+              return (
+                <StepTableRow
+                  key={step.id}
+                  category={formatCategory(step.category)}
+                  productName={step.product_name || step.custom_product_name}
+                  completed={todayStep?.completed ?? false}
+                  skipped={todayStep?.skipped ?? false}
+                  completedAt={todayStep?.completed_at}
+                  waitTimeSeconds={step.wait_time_seconds}
+                  frequency={step.frequency}
+                  isLast={idx === currentRoutine.steps.length - 1}
+                  onPress={() => completeStep(currentRoutine.id, step.id)}
+                  onLongPress={() => {
+                    setSkipStepId(step.id);
+                    skipSheetRef.current?.expand();
+                  }}
+                />
+              );
+            })}
+          </StepTable>
         )}
 
-        {/* Conflicts */}
-        {store.conflicts.length > 0 && (
-          <View style={s.sectionPad}>
-            <ConflictNotice conflicts={store.conflicts} />
-          </View>
+        {currentRoutine && totalSteps > 0 && (
+          <CompleteAllButton
+            loading={completingAll}
+            onPress={() => completeAllSteps(currentRoutine.id)}
+            allDone={totalSteps > 0 && completedSteps >= totalSteps}
+          />
         )}
 
-        {/* Monthly cost */}
-        {currentRoutine?.total_monthly_cost != null &&
-          currentRoutine.total_monthly_cost > 0 && (
-            <View style={s.sectionPad}>
-              <MonthlyCostPill
-                cost={currentRoutine.total_monthly_cost}
-                onPress={() => store.loadCost()}
-              />
-            </View>
-          )}
+        {conflicts.length > 0 && <ConflictNotice conflicts={conflicts} />}
 
-        <View style={{ height: 40 }} />
+        {currentRoutine?.total_monthly_cost != null && currentRoutine.total_monthly_cost > 0 && (
+          <Text style={[styles.costText, { color: colors.secondaryLabel }]}>
+            ₹{currentRoutine.total_monthly_cost}/mo
+          </Text>
+        )}
       </ScrollView>
     );
   };
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // EXPLORE
-  // ═══════════════════════════════════════════════════════════════════════
-  const renderExplore = () => (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={s.exploreContent}
-    >
-      {/* Featured */}
+  /* ── Library Tab ──────────────────────────────────────────── */
+
+  const renderLibrary = () => (
+    <ScrollView contentContainerStyle={styles.libraryContent}>
       <FeaturedRoutineCard
         template={FEATURED_ROUTINE}
         onPress={() => handleTemplatePress(FEATURED_ROUTINE.id)}
       />
 
-      <View style={{ height: SPACE.xl }} />
+      <View style={{ height: SPACE.md }} />
 
-      {/* Category rows */}
       {ROUTINE_CATEGORIES.map((cat) => (
         <CategoryRow
           key={cat.id}
@@ -383,461 +333,377 @@ export default function RoutineScreen() {
         />
       ))}
 
-      {/* Quick tips */}
-      <Text style={[s.sectionTitle, { color: colors.label }]}>Quick Tips</Text>
-      <View style={[{ marginHorizontal: SPACE.lg, backgroundColor: colors.secondarySystemBackground, borderRadius: 12, overflow: 'hidden' }]}>
-        {TIPS.slice(0, 6).map((tip, i) => (
-          <Pressable
-            key={tip.id}
-            style={[{
-              flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12,
-            }, i < 5 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.separator }]}
-          >
-            <Text style={{ fontSize: 20, marginRight: 12 }}>{tip.emoji}</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontFamily: 'Outfit-SemiBold', color: colors.label }}>{tip.title}</Text>
-              <Text numberOfLines={1} style={{ fontSize: 12, fontFamily: 'Outfit', color: colors.secondaryLabel, marginTop: 1 }}>{tip.body}</Text>
-            </View>
-          </Pressable>
+      <View style={[styles.sectionDivider, { borderColor: colors.separator }]} />
+
+      <Text style={[styles.sectionTitle, { color: colors.label }]}>Learn</Text>
+
+      <View style={styles.sectionPad}>
+        <OrderDiagram amOrder={AM_ORDER} pmOrder={PM_ORDER} />
+      </View>
+
+      <View style={{ height: SPACE.md }} />
+
+      <Text style={[styles.sectionTitle, { color: colors.label }]}>
+        Ingredient Rules
+      </Text>
+      <View style={styles.sectionPad}>
+        {CONFLICTS.map((c, i) => (
+          <ConflictRule key={i} rule={c} />
         ))}
       </View>
 
-      <View style={{ height: 40 }} />
-    </ScrollView>
-  );
+      <View style={{ height: SPACE.md }} />
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // MY ROUTINES
-  // ═══════════════════════════════════════════════════════════════════════
-  const renderRoutines = () => {
-    if (store.routines.length === 0) {
-      return (
-        <ScrollView
-          contentContainerStyle={s.emptyContainer}
-          showsVerticalScrollIndicator={false}
-        >
-          <Text style={s.emptyEmoji}>📋</Text>
-          <Text style={[s.emptyTitle, { color: colors.label }]}>
-            No routines yet
-          </Text>
-          <Text style={[s.emptyBody, { color: colors.secondaryLabel }]}>
-            Create your first routine to start tracking your skincare journey.
-          </Text>
-          <Pressable
-            style={[s.emptyButton, { backgroundColor: colors.systemBlue }]}
-            onPress={openCreateSheet}
-          >
-            <Text style={s.emptyButtonText}>Create a routine</Text>
-          </Pressable>
-        </ScrollView>
-      );
-    }
-
-    const activeRoutines = store.routines.filter(r => r.is_active);
-    const savedRoutines = store.routines.filter(r => !r.is_active);
-
-    return (
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.label}
-          />
-        }
-        contentContainerStyle={s.routinesContent}
-      >
-        {/* Create new routine button */}
-        <Pressable
-          onPress={openCreateSheet}
-          style={[{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16,
-            backgroundColor: colors.systemBlue + '10', borderRadius: 14, borderWidth: 1,
-            borderColor: colors.systemBlue + '30', borderStyle: 'dashed' }]}
-        >
-          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.systemBlue,
-            alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: '#FFF', fontSize: 22, fontWeight: '300' }}>+</Text>
-          </View>
-          <View>
-            <Text style={{ fontSize: 16, fontFamily: 'Outfit-SemiBold', color: colors.label }}>New Routine</Text>
-            <Text style={{ fontSize: 12, fontFamily: 'Outfit', color: colors.secondaryLabel }}>Build with JAY or from scratch</Text>
-          </View>
-        </Pressable>
-
-        {/* Active Routines */}
-        {activeRoutines.length > 0 && (
-          <>
-            <Text style={[s.sectionTitle, { marginTop: SPACE.xl, marginBottom: SPACE.sm }]}>
-              Active ({activeRoutines.length})
-            </Text>
-            {activeRoutines.map(routine => (
-              <View key={routine.id} style={{ marginBottom: 10 }}>
-                <RoutineCard
-                  routine={routine}
-                  isActive={true}
-                  onPress={() => router.push({ pathname: '/(screens)/routine-detail', params: { routineId: routine.id } })}
-                />
-                {/* Action row below card */}
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 6, paddingHorizontal: 4 }}>
-                  <Pressable
-                    onPress={() => router.push({ pathname: '/(screens)/routine-edit', params: { routineId: routine.id } })}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 10,
-                      backgroundColor: colors.tertiarySystemFill, borderRadius: 8 }}>
-                    <Text style={{ fontSize: 12, fontFamily: 'Outfit-Medium', color: colors.secondaryLabel }}>Edit</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => {
-                      Alert.alert('Deactivate?', 'This routine will be saved but won\'t track daily progress.', [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Deactivate', style: 'destructive', onPress: () => store.deleteRoutine(routine.id) },
-                      ]);
-                    }}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 10,
-                      backgroundColor: colors.tertiarySystemFill, borderRadius: 8 }}>
-                    <Text style={{ fontSize: 12, fontFamily: 'Outfit-Medium', color: colors.systemOrange }}>Deactivate</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => {
-                      store.createRoutine({
-                        name: `${routine.name} (copy)`,
-                        period: routine.period,
-                        routine_type: routine.routine_type,
-                        description: routine.description || undefined,
-                      });
-                    }}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 10,
-                      backgroundColor: colors.tertiarySystemFill, borderRadius: 8 }}>
-                    <Text style={{ fontSize: 12, fontFamily: 'Outfit-Medium', color: colors.secondaryLabel }}>Duplicate</Text>
-                  </Pressable>
-                </View>
-              </View>
-            ))}
-          </>
-        )}
-
-        {/* Saved / Inactive Routines */}
-        <Text style={[s.sectionTitle, { marginTop: SPACE.xl, marginBottom: SPACE.sm, color: colors.label }]}>
-          Saved
-        </Text>
-        {savedRoutines.length === 0 ? (
-          <View style={{ padding: 20, alignItems: 'center', backgroundColor: colors.secondarySystemBackground,
-            borderRadius: 12 }}>
-            <Text style={{ fontSize: 13, fontFamily: 'Outfit', color: colors.tertiaryLabel }}>
-              Deactivated routines will appear here
-            </Text>
-          </View>
-        ) : (
-          savedRoutines.map(routine => (
-            <View key={routine.id} style={{ marginBottom: 10 }}>
-              <RoutineCard routine={routine} isActive={false}
-                onPress={() => router.push({ pathname: '/(screens)/routine-detail', params: { routineId: routine.id } })} />
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 6, paddingHorizontal: 4 }}>
-                <Pressable
-                  onPress={() => {
-                    store.createRoutine({
-                      name: routine.name || 'Routine',
-                      period: routine.period,
-                      routine_type: routine.routine_type,
-                    });
-                  }}
-                  style={{ paddingVertical: 6, paddingHorizontal: 10,
-                    backgroundColor: colors.systemBlue + '15', borderRadius: 8 }}>
-                  <Text style={{ fontSize: 12, fontFamily: 'Outfit-Medium', color: colors.systemBlue }}>Activate</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    Alert.alert('Delete?', 'This routine will be permanently removed.', [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Delete', style: 'destructive', onPress: () => store.deleteRoutine(routine.id) },
-                    ]);
-                  }}
-                  style={{ paddingVertical: 6, paddingHorizontal: 10,
-                    backgroundColor: colors.systemRed + '10', borderRadius: 8 }}>
-                  <Text style={{ fontSize: 12, fontFamily: 'Outfit-Medium', color: colors.systemRed }}>Delete</Text>
-                </Pressable>
-              </View>
-            </View>
-          ))
-        )}
-
-        {/* Stats summary */}
-        {store.stats && (
-          <>
-            <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.separator, marginVertical: SPACE.xl }} />
-            <StatsPeriodToggle active={statsPeriodDays} onChange={setStatsPeriodDays} />
-            <View style={{ height: SPACE.md }} />
-            <StatsHero streak={store.streak.current_streak} />
-            <View style={s.sectionPad}>
-              <StatCards
-                adherence={store.stats.adherence_percentage}
-                streak={store.stats.current_streak}
-                longest={store.stats.longest_streak}
-                skipped={store.stats.skipped_count}
-              />
-            </View>
-          </>
-        )}
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
-    );
-  };
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // LEARN
-  // ═══════════════════════════════════════════════════════════════════════
-  const renderLearn = () => (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={s.learnContent}
-    >
-      {/* Layering order */}
-      <Text style={[s.sectionTitle, { color: colors.label }]}>
-        Layering Order
-      </Text>
-      <OrderDiagram amOrder={AM_ORDER} pmOrder={PM_ORDER} />
-
-      <View style={{ height: SPACE.xl }} />
-
-      {/* Conflict rules */}
-      <Text style={[s.sectionTitle, { color: colors.label }]}>
-        Ingredient Conflicts
-      </Text>
-      {CONFLICTS.map((rule, i) => (
-        <ConflictRule key={i} rule={rule} />
-      ))}
-
-      <View style={{ height: SPACE.xl }} />
-
-      {/* Ingredient spotlights */}
-      <Text style={[s.sectionTitle, { color: colors.label }]}>
+      <Text style={[styles.sectionTitle, { color: colors.label }]}>
         Ingredient Spotlights
       </Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.horizontalScroll}
+        contentContainerStyle={styles.horizontalScroll}
       >
-        {INGREDIENT_SPOTLIGHTS.map((spotlight) => (
-          <IngredientSpotlight key={spotlight.id} spotlight={spotlight} />
+        {INGREDIENT_SPOTLIGHTS.map((item, i) => (
+          <IngredientSpotlight key={i} spotlight={item} />
         ))}
       </ScrollView>
 
-      <View style={{ height: SPACE.xl }} />
+      <View style={{ height: SPACE.md }} />
 
-      {/* Seasonal guides */}
-      <Text style={[s.sectionTitle, { color: colors.label }]}>
+      <Text style={[styles.sectionTitle, { color: colors.label }]}>
         Seasonal Guides
       </Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.horizontalScroll}
+        contentContainerStyle={styles.horizontalScroll}
       >
-        {SEASONAL_GUIDES.map((guide) => (
-          <SeasonalCard key={guide.id} guide={guide} />
+        {SEASONAL_GUIDES.map((item, i) => (
+          <SeasonalCard key={i} guide={item} />
         ))}
       </ScrollView>
 
-      <View style={{ height: SPACE.xl }} />
+      <View style={{ height: SPACE.md }} />
 
-      {/* Science articles */}
-      <Text style={[s.sectionTitle, { color: colors.label }]}>
+      <Text style={[styles.sectionTitle, { color: colors.label }]}>
         Science & Guides
       </Text>
-      {SCIENCE_ARTICLES.map((article) => (
-        <ArticleCard key={article.id} article={article} />
-      ))}
-
-      {/* Extra tips */}
-      <View style={{ height: SPACE.xl }} />
-      <Text style={[s.sectionTitle, { color: colors.label }]}>More Tips</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.horizontalScroll}
-      >
-        {TIPS.slice(6).map((tip) => (
-          <TipCard key={tip.id} tip={tip} />
+      <View style={styles.sectionPad}>
+        {SCIENCE_ARTICLES.map((article, i) => (
+          <ArticleCard key={i} article={article} />
         ))}
-      </ScrollView>
-
-      <View style={{ height: 40 }} />
+      </View>
     </ScrollView>
   );
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // MAIN RENDER
-  // ═══════════════════════════════════════════════════════════════════════
+  /* ── My Routines Tab ──────────────────────────────────────── */
+
+  const renderRoutines = () => {
+    if (!routines.length) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyEmoji}>📋</Text>
+          <Text style={[styles.emptyTitle, { color: colors.label }]}>
+            No routines yet
+          </Text>
+          <Text style={[styles.emptyBody, { color: colors.secondaryLabel }]}>
+            Create a routine to get started with your skincare journey.
+          </Text>
+          <Pressable
+            style={[styles.emptyButton, { backgroundColor: colors.systemBlue }]}
+            onPress={openCreateSheet}
+          >
+            <Text style={styles.emptyButtonText}>Create Routine</Text>
+          </Pressable>
+        </View>
+      );
+    }
+
+    return (
+      <ScrollView
+        contentContainerStyle={styles.routinesContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {/* New routine button */}
+        <Pressable
+          style={[styles.newRoutineBtn, { borderColor: colors.systemBlue }]}
+          onPress={openCreateSheet}
+        >
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: colors.systemBlue + '18',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ fontSize: 20, color: colors.systemBlue }}>+</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: colors.label }}>
+              New Routine
+            </Text>
+            <Text style={{ fontSize: 13, color: colors.secondaryLabel }}>
+              Build with JAY or from scratch
+            </Text>
+          </View>
+        </Pressable>
+
+        {/* Active section */}
+        <Text style={[styles.sectionTitle, { color: colors.label, marginTop: 24 }]}>
+          Active ({activeRoutines.length})
+        </Text>
+        {activeRoutines.map((routine) => (
+          <RoutineManagementCard
+            key={routine.id}
+            routine={routine}
+            isActive={true}
+            adherence={stats?.adherence_percentage}
+            streak={streak.current_streak}
+            onPress={() =>
+              router.push({ pathname: '/routine-detail', params: { id: routine.id } })
+            }
+            onEdit={() =>
+              router.push({ pathname: '/routine-edit', params: { id: routine.id } })
+            }
+            onMore={() =>
+              Alert.alert('Options', undefined, [
+                {
+                  text: 'Duplicate',
+                  onPress: () => createRoutine({ name: `${routine.name} (copy)`, period: routine.period, routine_type: routine.routine_type }),
+                },
+                {
+                  text: 'Deactivate',
+                  style: 'destructive',
+                  onPress: () => deleteRoutine(routine.id),
+                },
+                {
+                  text: 'Share',
+                  onPress: () =>
+                    Share.share({ message: `Check out my ${routine.name} routine!` }),
+                },
+                { text: 'Cancel', style: 'cancel' },
+              ])
+            }
+          />
+        ))}
+
+        {/* Saved section */}
+        <Text style={[styles.sectionTitle, { color: colors.label, marginTop: 24 }]}>
+          Saved
+        </Text>
+        {savedRoutines.length > 0 ? (
+          savedRoutines.map((routine) => (
+            <RoutineManagementCard
+              key={routine.id}
+              routine={routine}
+              isActive={false}
+              onPress={() =>
+                router.push({ pathname: '/(screens)/routine-detail', params: { routineId: routine.id } } as any)
+              }
+              onEdit={() =>
+                router.push({ pathname: '/(screens)/routine-edit', params: { routineId: routine.id } } as any)
+              }
+              onMore={() => {}}
+              onActivate={() => createRoutine({ name: routine.name || 'Routine', period: routine.period, routine_type: routine.routine_type })}
+              onDelete={() => Alert.alert('Delete?', 'Permanently remove this routine?', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Delete', style: 'destructive', onPress: () => deleteRoutine(routine.id) },
+              ])}
+            />
+          ))
+        ) : (
+          <Text style={{ fontSize: 14, color: colors.tertiaryLabel, paddingHorizontal: 16 }}>
+            Deactivated routines will appear here.
+          </Text>
+        )}
+
+        {/* Stats section */}
+        {stats && (
+          <>
+            <View style={[styles.sectionDivider, { borderColor: colors.separator }]} />
+            <StatsPeriodToggle
+              active={statsPeriodDays}
+              onChange={setStatsPeriodDays}
+            />
+            <StatsHero streak={streak.current_streak} />
+            <View style={styles.sectionPad}>
+              <StatCards
+                adherence={stats.adherence_percentage}
+                streak={stats.current_streak}
+                longest={stats.longest_streak}
+                skipped={stats.skipped_count}
+              />
+            </View>
+          </>
+        )}
+      </ScrollView>
+    );
+  };
+
+  /* ── Segment content ──────────────────────────────────────── */
+
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.systemBlue} />
+        </View>
+      );
+    }
+    switch (activeSegment) {
+      case 0:
+        return renderToday();
+      case 1:
+        return renderLibrary();
+      case 2:
+        return renderRoutines();
+      default:
+        return null;
+    }
+  };
+
+  /* ── Main render ──────────────────────────────────────────── */
+
   return (
-    <GestureHandlerRootView style={[s.root, { backgroundColor: colors.systemBackground }]}>
+    <GestureHandlerRootView style={[styles.root, { backgroundColor: colors.systemBackground }]}>
       <View style={{ paddingTop: insets.top }}>
         <RoutineHeader onPlusPress={openCreateSheet} />
-        <View style={s.segmentWrap}>
+        <View style={styles.segmentWrap}>
           <SegmentedControl
-            segments={[...SEGMENTS]}
+            segments={SEGMENTS}
             active={activeSegment}
             onChange={setActiveSegment}
           />
         </View>
       </View>
 
-      {/* Loading */}
-      {store.isLoading ? (
-        <View style={s.loadingContainer}>
-          <ActivityIndicator color={colors.label} />
-          <Text style={[s.loadingText, { color: colors.secondaryLabel }]}>
-            Loading...
-          </Text>
-        </View>
-      ) : (
-        <>
-          {activeSegment === 0 && renderToday()}
-          {activeSegment === 1 && renderExplore()}
-          {activeSegment === 2 && renderRoutines()}
-          {activeSegment === 3 && renderLearn()}
-        </>
-      )}
+      {renderContent()}
 
-      {/* ── Bottom sheets ──────────────────────────────────────────── */}
-      <CreateRoutineSheet
-        sheetRef={createSheetRef}
-        onCreated={handleCreateRoutine}
-      />
+      <CreateRoutineSheet sheetRef={createSheetRef} onCreated={handleCreateRoutine} />
       <SkipReasonSheet
         sheetRef={skipSheetRef}
         onSkip={handleSkip}
         onCancel={() => {
-          setSkipStepId(null);
           skipSheetRef.current?.close();
+          setSkipStepId(null);
         }}
       />
     </GestureHandlerRootView>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// STYLES
-// ═══════════════════════════════════════════════════════════════════════════
-const s = StyleSheet.create({
+/* ── Styles ────────────────────────────────────────────────────── */
+
+const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
   segmentWrap: {
-    paddingHorizontal: SPACE.lg,
-    paddingBottom: SPACE.sm,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
   },
-
-  // Session tabs
   sessionRow: {
-    paddingHorizontal: SPACE.lg,
-    paddingVertical: SPACE.sm,
+    flexDirection: 'row',
+    paddingHorizontal: 16,
     gap: 8,
+    marginBottom: 12,
   },
   sessionPill: {
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: 20,
   },
   sessionPillText: {
-    fontSize: 13,
-    fontFamily: 'Outfit-SemiBold',
+    fontSize: 14,
+    fontWeight: '600',
   },
-
-  // Shared
   sectionPad: {
-    paddingHorizontal: SPACE.lg,
-    marginBottom: SPACE.md,
+    paddingHorizontal: 16,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 20,
     fontFamily: 'Outfit-Bold',
-    paddingHorizontal: SPACE.lg,
-    marginBottom: SPACE.md,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  sectionDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginVertical: 20,
+    marginHorizontal: 16,
   },
   horizontalScroll: {
-    paddingHorizontal: SPACE.lg,
+    paddingHorizontal: 16,
     gap: 10,
   },
-
-  // Loading
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
+  statPillsRow: {
+    flexDirection: 'row',
     justifyContent: 'center',
     gap: 12,
+    marginVertical: 12,
   },
-  loadingText: {
-    fontSize: 13,
-    fontFamily: 'Outfit',
-  },
-
-  // Empty state
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 40,
-    paddingTop: 60,
+    paddingHorizontal: 32,
   },
   emptyEmoji: {
     fontSize: 48,
     marginBottom: 16,
   },
   emptyTitle: {
-    fontSize: 22,
-    fontFamily: 'Outfit-SemiBold',
-    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: '700',
     marginBottom: 8,
+    textAlign: 'center',
   },
   emptyBody: {
     fontSize: 15,
-    fontFamily: 'Outfit',
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: 28,
+    marginBottom: 24,
   },
   emptyButton: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
     paddingVertical: 14,
     borderRadius: 12,
   },
   emptyButtonText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontFamily: 'Outfit-SemiBold',
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
-
-  // Today
   todayContent: {
     paddingBottom: 20,
   },
-  ringContainer: {
-    alignItems: 'center',
-    paddingVertical: SPACE.md,
-    marginBottom: SPACE.md,
+  libraryContent: {
+    paddingTop: 12,
   },
-
-  // Explore
-  exploreContent: {
-    paddingTop: SPACE.md,
-  },
-
-  // My Routines
   routinesContent: {
-    padding: SPACE.lg,
+    padding: 16,
+  },
+  newRoutineBtn: {
+    flexDirection: 'row',
     gap: 12,
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    alignItems: 'center',
   },
-  statsDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(60,60,67,0.12)',
-    marginVertical: SPACE.lg,
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-
-  // Learn
-  learnContent: {
-    paddingTop: SPACE.lg,
-    paddingBottom: 20,
+  costText: {
+    textAlign: 'center',
+    fontSize: 13,
+    marginVertical: 12,
   },
 });

@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { Animated, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../../lib/theme';
-import { ProductOut } from '../../types/product';
+import type { ProductOut } from '../../types/product';
 
 interface ProductCardProps {
   product: ProductOut;
@@ -9,100 +9,91 @@ interface ProductCardProps {
   onPress: () => void;
 }
 
-const CATEGORY_COLORS: Record<string, string> = {
-  cleanser: '#0A84FF', serum: '#5E5CE6', moisturizer: '#64D2FF',
-  sunscreen: '#FFD60A', toner: '#30D158', treatment: '#FF9F0A',
-  shampoo: '#BF5AF2', conditioner: '#BF5AF2', mask: '#FF375F',
-  exfoliant: '#FF375F', essence: '#30D158',
+// Gradient-style dark background tints per category (matches HTML mockup)
+const GRADIENT_COLORS: Record<string, [string, string]> = {
+  cleanser:    ['#162a3a', '#0a1520'],
+  serum:       ['#2a1a20', '#1a0a10'],
+  moisturizer: ['#1a2a20', '#0a1a10'],
+  sunscreen:   ['#202a2a', '#101a1a'],
+  toner:       ['#2a2a1a', '#1a1a0a'],
+  treatment:   ['#1a1a2a', '#0a0a1a'],
 };
 
-const CATEGORY_EMOJI: Record<string, string> = {
-  cleanser: '🧴', serum: '💧', moisturizer: '🧊', sunscreen: '☀️',
-  toner: '💦', treatment: '⚗️', shampoo: '💇', conditioner: '💇',
-  mask: '🎭', exfoliant: '✨', essence: '🌸', oil: '🫧',
-};
-
-const fmtCategory = (cat: string) =>
-  cat.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-
-function getCatEmoji(category: string): string {
-  for (const [key, emoji] of Object.entries(CATEGORY_EMOJI)) {
-    if (category.includes(key)) return emoji;
-  }
-  return '📦';
+function getGradientBg(category: string): string {
+  const pair = GRADIENT_COLORS[category?.toLowerCase()] ?? ['#1a1a2a', '#0a0a1a'];
+  return pair[0]; // RN doesn't support CSS gradients natively, use darker tint
 }
 
-function getCatColor(category: string, fallback: string): string {
-  for (const [key, color] of Object.entries(CATEGORY_COLORS)) {
-    if (category.includes(key)) return color;
-  }
-  return fallback;
+function formatReviewCount(count: number): string {
+  if (count >= 1000) return `${(count / 1000).toFixed(count >= 10000 ? 0 : 1)}K`;
+  return String(count);
 }
 
 export default function ProductCard({ product, matchPercent, onPress }: ProductCardProps) {
   const { colors } = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
 
-  const onPressIn = () => Animated.spring(scale, { toValue: 0.97, useNativeDriver: true }).start();
-  const onPressOut = () => Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start();
+  const onPressIn = () =>
+    Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 50 }).start();
+  const onPressOut = () =>
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 50 }).start();
 
-  const catColor = getCatColor(product.category, colors.systemBlue);
   const hasImage = !!product.image_url && product.image_url.startsWith('http');
-
-  const formTags: string[] = [];
-  if (product.formulation?.fragrance_free) formTags.push('Fragrance-Free');
-  if (product.formulation?.paraben_free) formTags.push('Paraben-Free');
-  if (product.formulation?.alcohol_free) formTags.push('Alcohol-Free');
+  const bgColor = getGradientBg(product.category);
 
   return (
     <Animated.View style={{ transform: [{ scale }], flex: 1 }}>
-      <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut}
-        style={[$.card, { backgroundColor: colors.secondarySystemBackground }]}
+      <Pressable
+        onPress={onPress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        style={[styles.card, { backgroundColor: colors.secondarySystemBackground }]}
       >
-        {/* Image area */}
-        <View style={[$.heroArea, !hasImage && { backgroundColor: catColor + '15' }]}>
+        {/* Thumbnail area */}
+        <View style={[styles.thumb, { backgroundColor: bgColor }]}>
           {hasImage ? (
-            <Image source={{ uri: product.image_url! }} style={$.heroImage} resizeMode="cover" />
-          ) : (
-            <Text style={$.heroEmoji}>{getCatEmoji(product.category)}</Text>
-          )}
-
-          {/* Category pill */}
-          <View style={[$.catBadge, { backgroundColor: catColor + '20' }]}>
-            <Text style={[$.catBadgeText, { color: catColor }]}>{fmtCategory(product.category)}</Text>
-          </View>
+            <Image
+              source={{ uri: product.image_url! }}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+            />
+          ) : null}
 
           {/* Match badge */}
           {matchPercent != null && (
-            <View style={[$.matchBadge, { backgroundColor: colors.systemBlue }]}>
-              <Text style={$.matchText}>{matchPercent}%</Text>
+            <View style={styles.matchBadge}>
+              <Text style={styles.matchText}>{matchPercent}% match</Text>
             </View>
           )}
         </View>
 
-        {/* Content */}
-        <View style={$.content}>
-          <Text numberOfLines={2} style={[$.name, { color: colors.label }]}>
+        {/* Body */}
+        <View style={styles.body}>
+          <Text numberOfLines={2} style={[styles.name, { color: colors.label }]}>
             {product.name}
           </Text>
-          <Text style={[$.brand, { color: colors.secondaryLabel }]}>
+          <Text style={[styles.brand, { color: colors.secondaryLabel }]}>
             {product.brand}
           </Text>
 
           {/* Price + rating row */}
-          <View style={$.bottomRow}>
-            <Text style={[$.price, { color: colors.label }]}>
-              {product.price_inr != null ? `₹${product.price_inr}` : '—'}
+          <View style={styles.priceRow}>
+            <Text style={[styles.price, { color: colors.label }]}>
+              {product.price_inr != null ? `\u20B9${product.price_inr}` : '\u2014'}
             </Text>
-            {product.rating != null && product.rating > 0 ? (
-              <Text style={[$.ratingText, { color: colors.tertiaryLabel }]}>
-                ⭐ {product.rating}{product.review_count ? ` (${product.review_count})` : ''}
-              </Text>
-            ) : formTags.length > 0 ? (
-              <View style={[$.formBadge, { backgroundColor: colors.systemGreen + '15' }]}>
-                <Text style={[$.formBadgeText, { color: colors.systemGreen }]}>{formTags[0]}</Text>
+            {product.rating != null && product.rating > 0 && (
+              <View style={styles.ratingWrap}>
+                <Text style={styles.star}>{'\u2605'}</Text>
+                <Text style={[styles.ratingScore, { color: colors.secondaryLabel }]}>
+                  {product.rating}
+                </Text>
+                {product.review_count != null && product.review_count > 0 && (
+                  <Text style={[styles.reviewCount, { color: colors.tertiaryLabel }]}>
+                    ({formatReviewCount(product.review_count)})
+                  </Text>
+                )}
               </View>
-            ) : null}
+            )}
           </View>
         </View>
       </Pressable>
@@ -110,29 +101,73 @@ export default function ProductCard({ product, matchPercent, onPress }: ProductC
   );
 }
 
-const $ = StyleSheet.create({
-  card: { borderRadius: 14, overflow: 'hidden' },
-  heroArea: {
-    height: 140, alignItems: 'center', justifyContent: 'center', position: 'relative',
+const styles = StyleSheet.create({
+  card: {
+    borderRadius: 14,
+    overflow: 'hidden',
   },
-  heroImage: { width: '100%', height: '100%' },
-  heroEmoji: { fontSize: 36, opacity: 0.6 },
-  catBadge: {
-    position: 'absolute', bottom: 8, left: 8,
-    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
+  thumb: {
+    height: 150,
+    position: 'relative',
   },
-  catBadgeText: { fontSize: 9, fontFamily: 'Outfit-SemiBold', textTransform: 'uppercase', letterSpacing: 0.5 },
   matchBadge: {
-    position: 'absolute', top: 8, right: 8,
-    paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6,
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: 'rgba(10,132,255,0.85)',
   },
-  matchText: { fontSize: 10, fontFamily: 'Outfit-Bold', color: '#FFF' },
-  content: { padding: 10 },
-  name: { fontSize: 14, fontFamily: 'Outfit-Medium', lineHeight: 18 },
-  brand: { fontSize: 11, fontFamily: 'Outfit', marginTop: 2 },
-  bottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
-  price: { fontSize: 15, fontFamily: 'Outfit-Bold' },
-  ratingText: { fontSize: 11, fontFamily: 'Outfit' },
-  formBadge: { paddingHorizontal: 5, paddingVertical: 1, borderRadius: 3 },
-  formBadgeText: { fontSize: 8, fontFamily: 'Outfit-Medium' },
+  matchText: {
+    fontSize: 11,
+    fontWeight: '600',
+    fontFamily: 'Outfit-SemiBold',
+    color: '#FFFFFF',
+  },
+  body: {
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 14,
+  },
+  name: {
+    fontSize: 14,
+    fontWeight: '500',
+    fontFamily: 'Outfit-Medium',
+    letterSpacing: -0.08,
+    lineHeight: 19,
+  },
+  brand: {
+    fontSize: 12,
+    fontFamily: 'Outfit',
+    marginTop: 3,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  price: {
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: 'Outfit-Bold',
+  },
+  ratingWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  star: {
+    fontSize: 11,
+    color: '#FFD60A',
+  },
+  ratingScore: {
+    fontSize: 12,
+    fontFamily: 'Outfit',
+  },
+  reviewCount: {
+    fontSize: 12,
+    fontFamily: 'Outfit',
+  },
 });

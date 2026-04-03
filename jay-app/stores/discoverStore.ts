@@ -2,27 +2,37 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { productService } from '../services/products';
 import type { ProductOut } from '../types/product';
+import type { DiscoverTab } from '../types/discover';
 
-const PAGE_SIZE = 20;
 const RECENT_SEARCHES_KEY = '@jay_recent_searches';
 
+export type Department = 'skincare' | 'haircare' | 'bodycare';
+
 interface DiscoverState {
-  // Product list
-  products: ProductOut[];
+  // All products (loaded once, filtered client-side)
+  allProducts: ProductOut[];
   isLoadingProducts: boolean;
-  hasMore: boolean;
-  offset: number;
+
+  // Tab navigation
+  activeTab: DiscoverTab;
 
   // Filters
+  department: Department;
   activeCategory: string | null;
   activeBrand: string | null;
-  searchQuery: string;
+  activeTier: string | null;
+  activeSmartCollection: string | null;
+  activeConcern: string | null;
+
+  // Search (separate from browse)
+  searchResults: ProductOut[];
+  isSearching: boolean;
 
   // Reference data
   brands: string[];
   categories: string[];
 
-  // Single product
+  // Single product detail
   selectedProduct: ProductOut | null;
   isLoadingProduct: boolean;
 
@@ -30,29 +40,40 @@ interface DiscoverState {
   recentSearches: string[];
 
   // Actions
-  loadProducts: (reset?: boolean) => Promise<void>;
-  loadMoreProducts: () => Promise<void>;
+  loadProducts: () => Promise<void>;
+  setActiveTab: (tab: DiscoverTab) => void;
+  setDepartment: (dept: Department) => void;
+  setCategory: (cat: string | null) => void;
+  setBrand: (brand: string | null) => void;
+  setTier: (tier: string | null) => void;
+  setSmartCollection: (id: string | null) => void;
+  setActiveConcern: (concern: string | null) => void;
+  clearFilters: () => void;
   searchProducts: (query: string) => Promise<void>;
+  clearSearchResults: () => void;
   loadProduct: (id: number) => Promise<void>;
   loadBrands: () => Promise<void>;
   loadCategories: () => Promise<void>;
-  setCategory: (cat: string | null) => void;
-  setBrand: (brand: string | null) => void;
   addRecentSearch: (term: string) => Promise<void>;
   removeRecentSearch: (term: string) => Promise<void>;
-  clearFilters: () => void;
   initRecentSearches: () => Promise<void>;
 }
 
 export const useDiscoverStore = create<DiscoverState>((set, get) => ({
-  products: [],
+  allProducts: [],
   isLoadingProducts: false,
-  hasMore: true,
-  offset: 0,
 
+  activeTab: 'forYou' as DiscoverTab,
+
+  department: 'skincare',
   activeCategory: null,
   activeBrand: null,
-  searchQuery: '',
+  activeTier: null,
+  activeSmartCollection: null,
+  activeConcern: null,
+
+  searchResults: [],
+  isSearching: false,
 
   brands: [],
   categories: [],
@@ -62,28 +83,87 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
 
   recentSearches: [],
 
-  // ── Load ALL products (no filters — filtering is client-side) ────────
+  // ── Load ALL products (one-time, client-side filtering) ─────────────
   loadProducts: async () => {
+    if (get().isLoadingProducts) return;
     set({ isLoadingProducts: true });
     try {
       const results = await productService.search({ limit: 1000, offset: 0 });
-      set({ products: results, offset: 0, hasMore: false });
+      set({ allProducts: results });
     } catch (e) {
       console.error('[Discover] loadProducts:', e);
     }
     set({ isLoadingProducts: false });
   },
 
-  // ── No-op (kept for interface compat) ─────────────────────────────────
-  loadMoreProducts: async () => {},
-
-  // ── Search ────────────────────────────────────────────────────────────
-  searchProducts: async (query: string) => {
-    set({ searchQuery: query, offset: 0, products: [], hasMore: true });
-    await get().loadProducts(true);
+  // ── Tab navigation ───────────────────────────────────────────────────
+  setActiveTab: (tab: DiscoverTab) => {
+    set({ activeTab: tab });
   },
 
-  // ── Single product ────────────────────────────────────────────────────
+  // ── Filter setters ──────────────────────────────────────────────────
+  setDepartment: (dept: Department) => {
+    set({
+      department: dept,
+      activeCategory: null,
+      activeBrand: null,
+      activeTier: null,
+      activeSmartCollection: null,
+      activeConcern: null,
+    });
+  },
+
+  setCategory: (cat: string | null) => {
+    set({ activeCategory: cat, activeSmartCollection: null });
+  },
+
+  setBrand: (brand: string | null) => {
+    set({ activeBrand: brand });
+  },
+
+  setTier: (tier: string | null) => {
+    set({ activeTier: tier });
+  },
+
+  setSmartCollection: (id: string | null) => {
+    set({ activeSmartCollection: id, activeCategory: null, activeBrand: null, activeTier: null });
+  },
+
+  setActiveConcern: (concern: string | null) => {
+    set({ activeConcern: concern });
+  },
+
+  clearFilters: () => {
+    set({
+      activeCategory: null,
+      activeBrand: null,
+      activeTier: null,
+      activeSmartCollection: null,
+      activeConcern: null,
+    });
+  },
+
+  // ── Search (writes to searchResults, not allProducts) ───────────────
+  searchProducts: async (query: string) => {
+    if (!query.trim()) {
+      set({ searchResults: [], isSearching: false });
+      return;
+    }
+    set({ isSearching: true });
+    try {
+      const results = await productService.search({ q: query.trim(), limit: 20 });
+      set({ searchResults: results });
+    } catch (e) {
+      console.error('[Discover] searchProducts:', e);
+    }
+    set({ isSearching: false });
+  },
+
+  clearSearchResults: () => {
+    set({ searchResults: [], isSearching: false });
+  },
+
+  // ── Single product ──────────────────────────────────────────────────
   loadProduct: async (id: number) => {
     set({ isLoadingProduct: true, selectedProduct: null });
     try {
@@ -95,7 +175,7 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
     set({ isLoadingProduct: false });
   },
 
-  // ── Reference data ────────────────────────────────────────────────────
+  // ── Reference data ──────────────────────────────────────────────────
   loadBrands: async () => {
     try {
       const brands = await productService.getBrands();
@@ -114,36 +194,13 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
     }
   },
 
-  // ── Filter setters ────────────────────────────────────────────────────
-  setCategory: (cat: string | null) => {
-    set({ activeCategory: cat, offset: 0, products: [], hasMore: true });
-    get().loadProducts(true);
-  },
-
-  setBrand: (brand: string | null) => {
-    set({ activeBrand: brand, offset: 0, products: [], hasMore: true });
-    get().loadProducts(true);
-  },
-
-  clearFilters: () => {
-    set({
-      activeCategory: null,
-      activeBrand: null,
-      searchQuery: '',
-      offset: 0,
-      products: [],
-      hasMore: true,
-    });
-    get().loadProducts(true);
-  },
-
-  // ── Recent searches ───────────────────────────────────────────────────
+  // ── Recent searches ─────────────────────────────────────────────────
   addRecentSearch: async (term: string) => {
     const trimmed = term.trim();
     if (!trimmed) return;
 
     const { recentSearches } = get();
-    const filtered = recentSearches.filter(s => s !== trimmed);
+    const filtered = recentSearches.filter((s) => s !== trimmed);
     const updated = [trimmed, ...filtered].slice(0, 10);
 
     set({ recentSearches: updated });
@@ -156,7 +213,7 @@ export const useDiscoverStore = create<DiscoverState>((set, get) => ({
 
   removeRecentSearch: async (term: string) => {
     const { recentSearches } = get();
-    const updated = recentSearches.filter(s => s !== term);
+    const updated = recentSearches.filter((s) => s !== term);
 
     set({ recentSearches: updated });
     try {

@@ -29,6 +29,11 @@ import AlternativesTab from '../../components/discover/AlternativesTab';
 
 const TABS = ['Overview', 'Ingredients', 'Prices', 'Experts', 'Alternatives'];
 
+function formatReviewCount(count: number): string {
+  if (count >= 1000) return `${(count / 1000).toFixed(count >= 10000 ? 0 : 1)}K`;
+  return String(count);
+}
+
 export default function ProductDetailScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -88,14 +93,13 @@ export default function ProductDetailScreen() {
     return (
       <View style={[styles.screen, { backgroundColor: colors.systemBackground }]}>
         <View style={{ height: insets.top }} />
-        {/* Back button */}
         <View style={styles.navBar}>
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+            <Svg width={12} height={21} viewBox="0 0 12 21" fill="none">
               <Path
-                d="M15 18l-6-6 6-6"
+                d="M10.5 1L1.5 10.5 10.5 20"
                 stroke={colors.systemBlue}
-                strokeWidth={2}
+                strokeWidth={2.5}
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
@@ -129,11 +133,11 @@ export default function ProductDetailScreen() {
         {/* Nav bar */}
         <View style={styles.navBar}>
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+            <Svg width={12} height={21} viewBox="0 0 12 21" fill="none">
               <Path
-                d="M15 18l-6-6 6-6"
+                d="M10.5 1L1.5 10.5 10.5 20"
                 stroke={colors.systemBlue}
-                strokeWidth={2}
+                strokeWidth={2.5}
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
@@ -141,10 +145,18 @@ export default function ProductDetailScreen() {
             <Text style={[styles.backLabel, { color: colors.systemBlue }]}>Discover</Text>
           </Pressable>
           <View style={styles.navRight}>
+            {/* Share */}
             <Pressable hitSlop={8} style={styles.navIcon}>
-              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+              <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
                 <Path
-                  d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"
+                  d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"
+                  stroke={colors.systemBlue}
+                  strokeWidth={1.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <Path
+                  d="M16 6l-4-4-4 4M12 2v13"
                   stroke={colors.systemBlue}
                   strokeWidth={1.5}
                   strokeLinecap="round"
@@ -152,12 +164,13 @@ export default function ProductDetailScreen() {
                 />
               </Svg>
             </Pressable>
+            {/* Bookmark */}
             <Pressable
               hitSlop={8}
               style={styles.navIcon}
               onPress={() => setBookmarked(!bookmarked)}
             >
-              <Svg width={20} height={20} viewBox="0 0 24 24" fill={bookmarked ? colors.systemBlue : 'none'}>
+              <Svg width={22} height={22} viewBox="0 0 24 24" fill={bookmarked ? colors.systemBlue : 'none'}>
                 <Path
                   d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"
                   stroke={colors.systemBlue}
@@ -173,7 +186,7 @@ export default function ProductDetailScreen() {
         {/* Product Hero */}
         <ProductHero product={product} />
 
-        {/* Certification Tags — from real formulation data */}
+        {/* Certification Tags */}
         <View style={styles.certRow}>
           <CertificationTags certifications={(() => {
             const tags: string[] = [];
@@ -183,12 +196,12 @@ export default function ProductDetailScreen() {
             if (product.formulation?.silicone_free) tags.push('Silicone-Free');
             if (product.suitable_for?.pregnancy_safe) tags.push('Pregnancy-Safe');
             if (product.suitable_for?.fungal_acne_safe) tags.push('Fungal Acne Safe');
-            if (tags.length === 0) tags.push(...mock.certifications.slice(0, 3));
+            if (tags.length === 0) tags.push(...mock.certifications.slice(0, 4));
             return tags;
           })()} />
         </View>
 
-        {/* Identity section */}
+        {/* Brand + Name + Meta */}
         <View style={styles.identity}>
           <Text style={[styles.brandLabel, { color: colors.secondaryLabel }]}>
             {product.brand.toUpperCase()}
@@ -198,40 +211,24 @@ export default function ProductDetailScreen() {
             {product.name}
           </Text>
 
-          {/* Description */}
-          {product.description && (
-            <Text numberOfLines={3} style={[styles.description, { color: colors.secondaryLabel }]}>
-              {product.description}
-            </Text>
-          )}
-
-          {/* Meta row: price + rating + reviews + source */}
+          {/* Meta row: price + size + rating + reviews */}
           <View style={styles.metaRow}>
             {priceDisplay ? (
               <Text style={[styles.price, { color: colors.label }]}>{priceDisplay}</Text>
             ) : null}
-            {priceDisplay ? (
-              <Text style={[styles.metaDot, { color: colors.tertiaryLabel }]}> · </Text>
-            ) : null}
             {ratingScore != null && Number(ratingScore) > 0 && (
               <>
-                <Svg width={14} height={14} viewBox="0 0 24 24" fill={colors.systemYellow}>
-                  <Path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                </Svg>
-                <Text style={[styles.rating, { color: colors.label }]}> {ratingScore}</Text>
-                <Text style={[styles.reviewCount, { color: colors.secondaryLabel }]}>
-                  {' '}({reviewCount})
+                <Text style={[styles.ratingStar, { color: colors.label }]}>
+                  {'\u2605'} {Number(ratingScore).toFixed(1)}
+                </Text>
+                <Text style={[styles.reviewCount, { color: colors.tertiaryLabel }]}>
+                  {' '}({formatReviewCount(reviewCount)} reviews)
                 </Text>
               </>
             )}
-            {product.price_source && (
-              <Text style={[styles.sourceLabel, { color: colors.tertiaryLabel }]}>
-                {' '}· {product.price_source}
-              </Text>
-            )}
           </View>
 
-          {/* Skin type targets — from real suitable_for data */}
+          {/* Skin type targets */}
           <View style={styles.skinBadges}>
             {(product.suitable_for?.skin_types ?? mock.skin_type_targets).map((type) => (
               <View
@@ -239,7 +236,7 @@ export default function ProductDetailScreen() {
                 style={[styles.skinBadge, { backgroundColor: colors.systemGreen + '18' }]}
               >
                 <Text style={[styles.skinBadgeText, { color: colors.systemGreen }]}>
-                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                  {type.charAt(0).toUpperCase() + type.slice(1)} skin
                 </Text>
               </View>
             ))}
@@ -282,11 +279,6 @@ export default function ProductDetailScreen() {
               </>
             )}
           </Pressable>
-          {isEnriched && product.price_source && (
-            <Text style={[styles.enrichSource, { color: colors.tertiaryLabel }]}>
-              via {product.price_source}
-            </Text>
-          )}
         </View>
 
         {/* Score Banner */}
@@ -328,7 +320,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit',
   },
 
-  // Nav bar
+  // Nav bar (matches HTML exactly)
   navBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -339,7 +331,7 @@ const styles = StyleSheet.create({
   backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
   },
   backLabel: {
     fontSize: 17,
@@ -349,7 +341,7 @@ const styles = StyleSheet.create({
   navRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACE.lg,
+    gap: 14,
   },
   navIcon: {
     padding: 4,
@@ -357,74 +349,63 @@ const styles = StyleSheet.create({
 
   // Certifications
   certRow: {
-    marginTop: SPACE.md,
+    marginTop: 14,
   },
 
   // Identity
   identity: {
-    paddingHorizontal: SPACE.lg,
-    marginTop: SPACE.lg,
-    gap: SPACE.xs,
+    paddingHorizontal: 20,
+    marginTop: 14,
   },
   brandLabel: {
     fontSize: 12,
+    fontWeight: '600',
     fontFamily: 'Outfit-SemiBold',
     textTransform: 'uppercase',
     letterSpacing: 1.2,
   },
   productName: {
     fontSize: 24,
-    fontFamily: 'Outfit-Bold',
     fontWeight: '700',
+    fontFamily: 'Outfit-Bold',
     letterSpacing: 0.35,
-    marginTop: SPACE.xxs,
-  },
-  description: {
-    fontSize: 14,
-    fontFamily: 'Outfit',
-    lineHeight: 20,
-    marginTop: SPACE.xs,
-  },
-  sourceLabel: {
-    fontSize: 12,
-    fontFamily: 'Outfit',
+    marginTop: 4,
+    lineHeight: 29,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: SPACE.sm,
+    marginTop: 10,
+    gap: 12,
   },
   price: {
     fontSize: 22,
-    fontFamily: 'Outfit-Bold',
     fontWeight: '700',
+    fontFamily: 'Outfit-Bold',
   },
-  metaDot: {
-    fontSize: 18,
+  ratingStar: {
+    fontSize: 13,
     fontFamily: 'Outfit',
   },
-  rating: {
-    fontSize: 15,
-    fontFamily: 'Outfit-SemiBold',
-  },
   reviewCount: {
-    fontSize: 14,
+    fontSize: 11,
     fontFamily: 'Outfit',
   },
   skinBadges: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: SPACE.sm,
-    marginTop: SPACE.md,
+    gap: 6,
+    marginTop: 12,
   },
   skinBadge: {
-    paddingHorizontal: SPACE.md,
-    paddingVertical: SPACE.xs,
-    borderRadius: RADIUS.xs,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   skinBadgeText: {
-    fontSize: 12,
-    fontFamily: 'Outfit-Medium',
+    fontSize: 11,
+    fontWeight: '600',
+    fontFamily: 'Outfit-SemiBold',
   },
 
   // Enrich button
@@ -445,20 +426,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Outfit-Medium',
   },
-  enrichSource: {
-    fontSize: 11,
-    fontFamily: 'Outfit',
-    marginTop: 4,
-  },
 
   // Score banner
   scoreBannerWrap: {
-    marginTop: SPACE.xl,
+    marginTop: 12,
     marginBottom: SPACE.lg,
   },
 
   // Tab content
-  tabContent: {
-    // Tab components handle their own horizontal padding
-  },
+  tabContent: {},
 });

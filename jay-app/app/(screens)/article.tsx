@@ -21,8 +21,16 @@ import {
   SCIENCE_ARTICLES,
   getSpotlightById,
 } from '../../data/learnContent';
+import {
+  FEATURED_ARTICLES,
+  EXPERT_ARTICLES,
+  GUIDE_ARTICLES,
+  POPULAR_READS,
+  INGREDIENT_SPOTLIGHTS as DISCOVER_SPOTLIGHTS,
+  INGREDIENT_DICTIONARY,
+} from '../../data/mockDiscoverContent';
 
-type ArticleType = 'tip' | 'spotlight' | 'science';
+type ArticleType = 'tip' | 'spotlight' | 'science' | 'discover';
 
 export default function ArticleScreen() {
   const { colors } = useTheme();
@@ -70,6 +78,42 @@ export default function ArticleScreen() {
           body: tip.body,
           type: 'tip' as const,
         };
+      }
+      case 'discover': {
+        // Search articles first
+        const allArticles = [...FEATURED_ARTICLES, ...EXPERT_ARTICLES, ...GUIDE_ARTICLES, ...POPULAR_READS];
+        const article = allArticles.find(a => a.id === articleId);
+        if (article) {
+          return {
+            title: article.title,
+            subtitle: article.author
+              ? `${article.author}${article.authorCredentials ? ' · ' + article.authorCredentials : ''} · ${article.readTime}`
+              : article.readTime,
+            body: article.body,
+            type: 'discover' as const,
+          };
+        }
+        // Search ingredient spotlights
+        const spotl = DISCOVER_SPOTLIGHTS.find(s => s.id === articleId);
+        if (spotl) {
+          return {
+            title: `${spotl.emoji} ${spotl.ingredientName}`,
+            subtitle: spotl.tagline,
+            body: spotl.summary,
+            type: 'discover' as const,
+          };
+        }
+        // Search ingredient dictionary
+        const dictEntry = INGREDIENT_DICTIONARY.find(d => d.id === articleId);
+        if (dictEntry) {
+          return {
+            title: `${dictEntry.emoji} ${dictEntry.name}`,
+            subtitle: dictEntry.category,
+            body: dictEntry.oneLiner,
+            type: 'discover' as const,
+          };
+        }
+        return null;
       }
       default:
         return null;

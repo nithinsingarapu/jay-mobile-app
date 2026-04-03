@@ -1,6 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { Pressable, StyleSheet, Text } from 'react-native';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { useTheme } from '../../lib/theme';
 
 interface SearchBarProps {
@@ -15,13 +15,19 @@ export default function SearchBar({ onPress }: SearchBarProps) {
       onPress={onPress}
       style={[styles.container, { backgroundColor: colors.tertiarySystemFill }]}
     >
-      <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-        <Path
-          d="M21 21L16.65 16.65M19 11C19 15.4183 15.4183 19 11 19C6.58172 19 3 15.4183 3 11C3 6.58172 6.58172 3 11 3C15.4183 3 19 6.58172 19 11Z"
+      <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+        <Circle
+          cx={11}
+          cy={11}
+          r={8}
           stroke={colors.tertiaryLabel}
-          strokeWidth={2}
+          strokeWidth={1.5}
+        />
+        <Path
+          d="M21 21l-4.35-4.35"
+          stroke={colors.tertiaryLabel}
+          strokeWidth={1.5}
           strokeLinecap="round"
-          strokeLinejoin="round"
         />
       </Svg>
       <Text style={[styles.placeholder, { color: colors.tertiaryLabel }]}>
@@ -35,13 +41,14 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 40,
     borderRadius: 10,
-    paddingHorizontal: 12,
-    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 7,
   },
   placeholder: {
-    fontSize: 14,
+    fontSize: 17,
     fontFamily: 'Outfit',
+    letterSpacing: -0.41,
   },
 });

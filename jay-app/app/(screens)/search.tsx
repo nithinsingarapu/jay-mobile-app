@@ -10,40 +10,51 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path, Circle, Polyline } from 'react-native-svg';
 import { useTheme } from '../../lib/theme';
 import { useDiscoverStore } from '../../stores/discoverStore';
 import { SPACE, RADIUS } from '../../constants/theme';
 import type { ProductOut } from '../../types/product';
 
-const TRENDING = [
-  'Niacinamide serum',
-  'Sunscreen SPF 50',
-  'CeraVe moisturizer',
-  'Vitamin C serum',
-  'Salicylic acid cleanser',
+// Trending products shown when no query typed
+const TRENDING: { name: string; category: string }[] = [
+  { name: 'Minimalist SPF 50', category: 'Sunscreen' },
+  { name: 'Cetaphil Gentle Cleanser', category: 'Cleanser' },
+  { name: 'The Derma Co Retinol', category: 'Treatment' },
 ];
 
 export default function SearchScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { colors } = useTheme();
-  const store = useDiscoverStore();
+  const searchResults = useDiscoverStore((s) => s.searchResults);
+  const isSearching = useDiscoverStore((s) => s.isSearching);
+  const recentSearches = useDiscoverStore((s) => s.recentSearches);
+  const searchProducts = useDiscoverStore((s) => s.searchProducts);
+  const clearSearchResults = useDiscoverStore((s) => s.clearSearchResults);
+  const addRecentSearch = useDiscoverStore((s) => s.addRecentSearch);
+  const removeRecentSearch = useDiscoverStore((s) => s.removeRecentSearch);
+  const initRecentSearches = useDiscoverStore((s) => s.initRecentSearches);
 
   const [query, setQuery] = useState('');
   const inputRef = useRef<TextInput>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    store.initRecentSearches();
+    initRecentSearches();
+    clearSearchResults();
   }, []);
 
+  // Debounced search
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    if (!query.trim()) return;
+    if (!query.trim()) {
+      clearSearchResults();
+      return;
+    }
 
     timerRef.current = setTimeout(() => {
-      store.searchProducts(query.trim());
+      searchProducts(query.trim());
     }, 300);
 
     return () => {
@@ -53,7 +64,7 @@ export default function SearchScreen() {
 
   const handleResultPress = useCallback(
     (product: ProductOut) => {
-      store.addRecentSearch(query.trim() || product.name);
+      addRecentSearch(query.trim() || product.name);
       router.push({
         pathname: '/(screens)/product-detail',
         params: { productId: String(product.id) },
@@ -65,7 +76,7 @@ export default function SearchScreen() {
   const handleTrendingPress = useCallback(
     (term: string) => {
       setQuery(term);
-      store.searchProducts(term);
+      searchProducts(term);
     },
     [],
   );
@@ -73,21 +84,20 @@ export default function SearchScreen() {
   const handleRecentPress = useCallback(
     (term: string) => {
       setQuery(term);
-      store.searchProducts(term);
+      searchProducts(term);
     },
     [],
   );
 
   const hasQuery = query.trim().length > 0;
-  const noResults =
-    hasQuery && !store.isLoadingProducts && store.products.length === 0;
+  const results = searchResults;
+  const noResults = hasQuery && !isSearching && results.length === 0;
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.systemBackground }]}>
-      {/* Safe area spacer */}
       <View style={{ height: insets.top }} />
 
-      {/* Header */}
+      {/* Header: search input + cancel */}
       <View style={styles.header}>
         <View
           style={[
@@ -95,20 +105,26 @@ export default function SearchScreen() {
             { backgroundColor: colors.tertiarySystemFill },
           ]}
         >
-          <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M21 21L16.65 16.65M19 11C19 15.4183 15.4183 19 11 19C6.58172 19 3 15.4183 3 11C3 6.58172 6.58172 3 11 3C15.4183 3 19 6.58172 19 11Z"
+          <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+            <Circle
+              cx={11}
+              cy={11}
+              r={8}
               stroke={colors.tertiaryLabel}
-              strokeWidth={2}
+              strokeWidth={1.5}
+            />
+            <Path
+              d="M21 21l-4.35-4.35"
+              stroke={colors.tertiaryLabel}
+              strokeWidth={1.5}
               strokeLinecap="round"
-              strokeLinejoin="round"
             />
           </Svg>
           <TextInput
             ref={inputRef}
             style={[styles.input, { color: colors.label }]}
-            placeholder="Products, ingredients, brands..."
-            placeholderTextColor={colors.placeholderText}
+            placeholder="Search..."
+            placeholderTextColor={colors.tertiaryLabel}
             autoFocus
             value={query}
             onChangeText={setQuery}
@@ -128,7 +144,7 @@ export default function SearchScreen() {
         contentContainerStyle={{ paddingBottom: 60 }}
       >
         {/* Loading */}
-        {hasQuery && store.isLoadingProducts && (
+        {hasQuery && isSearching && (
           <View style={styles.center}>
             <ActivityIndicator color={colors.systemBlue} />
           </View>
@@ -143,21 +159,21 @@ export default function SearchScreen() {
           </View>
         )}
 
-        {/* Live results */}
-        {hasQuery && !store.isLoadingProducts && store.products.length > 0 && (
+        {/* Live search results */}
+        {hasQuery && !isSearching && results.length > 0 && (
           <View
             style={[
               styles.groupedTable,
               { backgroundColor: colors.secondarySystemBackground },
             ]}
           >
-            {store.products.map((product, i) => (
+            {results.map((product, i) => (
               <Pressable
                 key={product.id}
                 onPress={() => handleResultPress(product)}
                 style={[
                   styles.resultRow,
-                  i < store.products.length - 1 && {
+                  i < results.length - 1 && {
                     borderBottomWidth: 0.33,
                     borderBottomColor: colors.separator,
                   },
@@ -192,11 +208,11 @@ export default function SearchScreen() {
           </View>
         )}
 
-        {/* Idle state — recent + trending */}
+        {/* Idle state — recent searches + trending */}
         {!hasQuery && (
           <>
             {/* Recent Searches */}
-            {store.recentSearches.length > 0 && (
+            {recentSearches.length > 0 && (
               <View style={styles.idleSection}>
                 <Text style={[styles.idleSectionTitle, { color: colors.secondaryLabel }]}>
                   Recent searches
@@ -207,21 +223,29 @@ export default function SearchScreen() {
                     { backgroundColor: colors.secondarySystemBackground },
                   ]}
                 >
-                  {store.recentSearches.map((term, i) => (
+                  {recentSearches.map((term, i) => (
                     <Pressable
                       key={term}
                       onPress={() => handleRecentPress(term)}
                       style={[
                         styles.recentRow,
-                        i < store.recentSearches.length - 1 && {
+                        i < recentSearches.length - 1 && {
                           borderBottomWidth: 0.33,
                           borderBottomColor: colors.separator,
                         },
                       ]}
                     >
+                      {/* Clock icon */}
                       <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                        <Path
-                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        <Circle
+                          cx={12}
+                          cy={12}
+                          r={10}
+                          stroke={colors.tertiaryLabel}
+                          strokeWidth={1.5}
+                        />
+                        <Polyline
+                          points="12 6 12 12 16 14"
                           stroke={colors.tertiaryLabel}
                           strokeWidth={1.5}
                           strokeLinecap="round"
@@ -234,8 +258,9 @@ export default function SearchScreen() {
                       >
                         {term}
                       </Text>
+                      {/* Remove button */}
                       <Pressable
-                        onPress={() => store.removeRecentSearch(term)}
+                        onPress={() => removeRecentSearch(term)}
                         hitSlop={8}
                         style={styles.removeBtn}
                       >
@@ -243,9 +268,8 @@ export default function SearchScreen() {
                           <Path
                             d="M18 6L6 18M6 6l12 12"
                             stroke={colors.tertiaryLabel}
-                            strokeWidth={2}
+                            strokeWidth={1.5}
                             strokeLinecap="round"
-                            strokeLinejoin="round"
                           />
                         </Svg>
                       </Pressable>
@@ -266,10 +290,10 @@ export default function SearchScreen() {
                   { backgroundColor: colors.secondarySystemBackground },
                 ]}
               >
-                {TRENDING.map((term, i) => (
+                {TRENDING.map((item, i) => (
                   <Pressable
-                    key={term}
-                    onPress={() => handleTrendingPress(term)}
+                    key={item.name}
+                    onPress={() => handleTrendingPress(item.name)}
                     style={[
                       styles.trendingRow,
                       i < TRENDING.length - 1 && {
@@ -278,20 +302,31 @@ export default function SearchScreen() {
                       },
                     ]}
                   >
+                    {/* Trend icon (orange) */}
                     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                      <Path
-                        d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+                      <Polyline
+                        points="23 6 13.5 15.5 8.5 10.5 1 18"
                         stroke={colors.systemOrange}
-                        strokeWidth={2}
+                        strokeWidth={1.5}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <Polyline
+                        points="17 6 23 6 23 12"
+                        stroke={colors.systemOrange}
+                        strokeWidth={1.5}
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       />
                     </Svg>
                     <Text
-                      style={[styles.trendingTerm, { color: colors.label }]}
+                      style={[styles.trendingName, { color: colors.label }]}
                       numberOfLines={1}
                     >
-                      {term}
+                      {item.name}
+                    </Text>
+                    <Text style={[styles.trendingCat, { color: colors.tertiaryLabel }]}>
+                      {item.category}
                     </Text>
                   </Pressable>
                 ))}
@@ -313,22 +348,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: SPACE.lg,
     paddingVertical: SPACE.sm,
-    gap: SPACE.md,
+    gap: 8,
   },
   inputWrapper: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    height: 40,
     borderRadius: RADIUS.sm,
-    paddingHorizontal: SPACE.md,
-    gap: SPACE.sm,
+    paddingHorizontal: 10,
+    gap: 7,
+    height: 36,
   },
   input: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 17,
     fontFamily: 'Outfit',
-    height: 40,
+    letterSpacing: -0.41,
+    height: 36,
     padding: 0,
   },
   cancel: {
@@ -361,14 +397,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: SPACE.lg,
     paddingVertical: SPACE.md,
+    minHeight: 44,
   },
   resultInfo: {
     flex: 1,
     gap: 2,
   },
   resultName: {
-    fontSize: 15,
-    fontFamily: 'Outfit-SemiBold',
+    fontSize: 17,
+    fontFamily: 'Outfit',
+    letterSpacing: -0.41,
   },
   resultMeta: {
     fontSize: 13,
@@ -377,14 +415,15 @@ const styles = StyleSheet.create({
 
   // Idle sections
   idleSection: {
-    marginBottom: SPACE.xxl,
+    marginBottom: SPACE.lg,
   },
   idleSectionTitle: {
     fontSize: 13,
-    fontFamily: 'Outfit-Medium',
+    fontFamily: 'Outfit',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    paddingHorizontal: SPACE.lg + SPACE.lg,
+    letterSpacing: -0.08,
+    paddingHorizontal: 32,
+    paddingTop: 16,
     marginBottom: SPACE.sm,
   },
 
@@ -394,12 +433,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: SPACE.lg,
     paddingVertical: SPACE.md,
+    minHeight: 44,
     gap: SPACE.md,
   },
   recentTerm: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 17,
     fontFamily: 'Outfit',
+    letterSpacing: -0.41,
   },
   removeBtn: {
     padding: 4,
@@ -411,11 +452,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: SPACE.lg,
     paddingVertical: SPACE.md,
+    minHeight: 44,
     gap: SPACE.md,
   },
-  trendingTerm: {
+  trendingName: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 17,
+    fontFamily: 'Outfit',
+    letterSpacing: -0.41,
+  },
+  trendingCat: {
+    fontSize: 13,
     fontFamily: 'Outfit',
   },
 });
