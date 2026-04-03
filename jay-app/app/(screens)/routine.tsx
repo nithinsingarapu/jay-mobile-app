@@ -307,17 +307,23 @@ export default function RoutineScreen() {
         )}
 
         {currentRoutine && totalSteps > 0 && (
-          <CompleteAllButton
-            loading={completingAll}
-            onPress={() => completeAllSteps(currentRoutine.id)}
-            allDone={totalSteps > 0 && completedSteps >= totalSteps}
-          />
+          <View style={{ marginTop: 16, marginHorizontal: 16 }}>
+            <CompleteAllButton
+              loading={completingAll}
+              onPress={() => completeAllSteps(currentRoutine.id)}
+              allDone={totalSteps > 0 && completedSteps >= totalSteps}
+            />
+          </View>
         )}
 
-        {conflicts.length > 0 && <ConflictNotice conflicts={conflicts} />}
+        {conflicts.length > 0 && (
+          <View style={{ marginTop: 12, marginHorizontal: 16 }}>
+            <ConflictNotice conflicts={conflicts} />
+          </View>
+        )}
 
         {currentRoutine?.total_monthly_cost != null && currentRoutine.total_monthly_cost > 0 && (
-          <Text style={[styles.costText, { color: colors.secondaryLabel }]}>
+          <Text style={[styles.costText, { color: colors.secondaryLabel, marginTop: 12 }]}>
             ₹{currentRoutine.total_monthly_cost}/mo
           </Text>
         )}

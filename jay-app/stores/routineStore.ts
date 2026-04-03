@@ -101,37 +101,76 @@ export const useRoutineStore = create<RoutineState>((set, get) => ({
 
   // ── Step completion ───────────────────────────────────────────────
   completeStep: async (routineId, stepId) => {
-    set({ completingStepId: stepId });
+    // OPTIMISTIC: update UI immediately
+    const prev = get().todayStatuses[routineId];
+    if (prev) {
+      set((s) => ({
+        completingStepId: stepId,
+        todayStatuses: {
+          ...s.todayStatuses,
+          [routineId]: {
+            ...prev,
+            completed_steps: prev.completed_steps + 1,
+            remaining_steps: Math.max(0, prev.remaining_steps - 1),
+            completion_percentage: Math.round(((prev.completed_steps + 1) / prev.total_steps) * 100),
+            steps: prev.steps.map((st: any) =>
+              st.step_id === stepId ? { ...st, completed: true, completed_at: new Date().toISOString() } : st
+            ),
+          },
+        },
+      }));
+    }
+    // SYNC: API call in background
     try {
       await routineService.completeStep(routineId, stepId);
-      const status = await routineService.getTodayStatus(routineId);
-      set((s) => ({
-        todayStatuses: { ...s.todayStatuses, [routineId]: status },
-        completingStepId: null,
-      }));
-      const streak = await routineService.getStreak();
-      set({ streak });
+      // Refresh actual status + streak in background (don't block UI)
+      Promise.all([
+        routineService.getTodayStatus(routineId).then(status =>
+          set((s) => ({ todayStatuses: { ...s.todayStatuses, [routineId]: status } }))
+        ),
+        routineService.getStreak().then(streak => set({ streak })),
+      ]).catch(() => {});
     } catch (e) {
       console.error('[Routine] Complete step:', e);
-      set({ completingStepId: null });
+      // Revert optimistic update
+      if (prev) set((s) => ({ todayStatuses: { ...s.todayStatuses, [routineId]: prev } }));
     }
+    set({ completingStepId: null });
   },
 
   skipStep: async (routineId, stepId, reason) => {
-    set({ completingStepId: stepId });
+    // OPTIMISTIC: update UI immediately
+    const prev = get().todayStatuses[routineId];
+    if (prev) {
+      set((s) => ({
+        completingStepId: stepId,
+        todayStatuses: {
+          ...s.todayStatuses,
+          [routineId]: {
+            ...prev,
+            skipped_steps: prev.skipped_steps + 1,
+            remaining_steps: Math.max(0, prev.remaining_steps - 1),
+            steps: prev.steps.map((st: any) =>
+              st.step_id === stepId ? { ...st, skipped: true, completed_at: new Date().toISOString() } : st
+            ),
+          },
+        },
+      }));
+    }
+    // SYNC
     try {
       await routineService.completeStep(routineId, stepId, true, reason);
-      const status = await routineService.getTodayStatus(routineId);
-      set((s) => ({
-        todayStatuses: { ...s.todayStatuses, [routineId]: status },
-        completingStepId: null,
-      }));
-      const streak = await routineService.getStreak();
-      set({ streak });
+      Promise.all([
+        routineService.getTodayStatus(routineId).then(status =>
+          set((s) => ({ todayStatuses: { ...s.todayStatuses, [routineId]: status } }))
+        ),
+        routineService.getStreak().then(streak => set({ streak })),
+      ]).catch(() => {});
     } catch (e) {
       console.error('[Routine] Skip step:', e);
-      set({ completingStepId: null });
+      if (prev) set((s) => ({ todayStatuses: { ...s.todayStatuses, [routineId]: prev } }));
     }
+    set({ completingStepId: null });
   },
 
   completeAllSteps: async (routineId) => {
