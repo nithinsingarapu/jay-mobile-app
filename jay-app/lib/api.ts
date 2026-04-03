@@ -57,13 +57,21 @@ export async function apiFetch<T = unknown>(
     clearTimeout(timeoutId);
 
     if (!res.ok) {
-      const error = await res.json().catch(() => ({ detail: res.statusText }));
-      const detail = error.detail;
-      const msg = typeof detail === 'string'
-        ? detail
-        : Array.isArray(detail)
-        ? detail.map((d: any) => d.msg || JSON.stringify(d)).join('; ')
-        : `API error ${res.status}`;
+      let msg = `API error ${res.status}`;
+      try {
+        const text = await res.text();
+        if (text) {
+          const error = JSON.parse(text);
+          const detail = error.detail;
+          if (typeof detail === 'string') msg = detail;
+          else if (Array.isArray(detail)) msg = detail.map((d: any) => d.msg || JSON.stringify(d)).join('; ');
+          else if (detail) msg = JSON.stringify(detail);
+          else if (error.message) msg = error.message;
+          else msg = text.slice(0, 200);
+        }
+      } catch {
+        msg = `API error ${res.status} ${res.statusText}`;
+      }
       throw new Error(msg);
     }
 

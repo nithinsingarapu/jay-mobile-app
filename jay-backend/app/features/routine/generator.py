@@ -102,7 +102,8 @@ def _get_climate_note(profile) -> str:
 # ── Enhanced product search ──────────────────────────────────────────────
 
 async def _get_products_for_category(
-    db: AsyncSession, category: str, allergies: list[str], skin_type: str | None
+    db: AsyncSession, category: str, allergies: list[str], skin_type: str | None,
+    limit: int = 5,
 ) -> str:
     """Search products with richer data — ratings, reviews, formulation flags."""
     products = await search_for_routine_step(
@@ -110,7 +111,7 @@ async def _get_products_for_category(
         budget=None,  # No budget constraint — recommend the BEST
         exclude_ingredients=allergies,
         skin_type=skin_type,
-        limit=10,  # More options for LLM to choose from
+        limit=limit,
     )
 
     if not products:
@@ -269,16 +270,26 @@ async def generate_routine(
         has_existing = len(existing_routines) > 0
         is_auto = data.routine_type == 'auto'
 
-        if is_supplementary or (is_auto and has_existing):
-            # Supplementary session (afternoon/evening) OR auto with existing routines
-            # → Search ALL categories — let JAY advise what's needed based on gaps
-            categories_to_search = list(ALL_CATEGORIES)
-            # Override template — don't force standard AM/PM steps
+        # How many products per category to fetch
+        products_per_cat = 5
+
+        if is_supplementary:
+            # Supplementary session — search focused categories (not all 13)
+            # Afternoon/evening typically need: SPF, lip care, mist/toner, moisturizer, serum
+            categories_to_search = ['sunscreen', 'lip_balm', 'toner', 'moisturizer', 'serum', 'essence', 'face_oil']
             template = []
+            products_per_cat = 3  # Less context = faster + more focused LLM response
+        elif is_auto and has_existing:
+            # Auto with existing routines — broader search but still reasonable
+            categories_to_search = list(ALL_CATEGORIES)
+            template = []
+            products_per_cat = 3
         elif template:
             categories_to_search = list(template)
+            products_per_cat = 5
         else:
             categories_to_search = list(ALL_CATEGORIES)
+            products_per_cat = 3
 
         # Also parse user message for specific categories they mention
         if data.additional_instructions:
@@ -301,7 +312,7 @@ async def generate_routine(
         available_products_text = ""
         for cat in categories_to_search:
             available_products_text += await _get_products_for_category(
-                db, cat, allergies, skin_type
+                db, cat, allergies, skin_type, limit=products_per_cat
             )
 
         # 6. Build the prompt
