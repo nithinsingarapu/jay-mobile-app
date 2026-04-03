@@ -160,6 +160,7 @@ export default function BuildWithJayScreen() {
     routineType: string;
     sessionName: string;
     routineName: string;
+    messageToJay: string;
   }>();
 
   const {
@@ -204,7 +205,8 @@ export default function BuildWithJayScreen() {
   useEffect(() => {
     const period = (params.period as 'am' | 'pm' | 'both') || 'both';
     const routineType = (params.routineType as string) || 'auto';
-    generateRoutine({ period, routine_type: routineType });
+    const message = params.messageToJay?.trim() || undefined;
+    generateRoutine({ period, routine_type: routineType, additional_instructions: message });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.period, params.routineType]);
 
@@ -232,8 +234,9 @@ export default function BuildWithJayScreen() {
   const handleRegenerate = useCallback(() => {
     const period = (params.period as 'am' | 'pm' | 'both') || 'both';
     const routineType = (params.routineType as string) || 'auto';
-    generateRoutine({ period, routine_type: routineType });
-  }, [params.period, params.routineType, generateRoutine]);
+    const message = params.messageToJay?.trim() || undefined;
+    generateRoutine({ period, routine_type: routineType, additional_instructions: message });
+  }, [params.period, params.routineType, params.messageToJay, generateRoutine]);
 
   const progressSteps = [
     { label: 'Reading your skin profile', done: generationStep >= 1 },

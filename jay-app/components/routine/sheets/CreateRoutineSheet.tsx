@@ -30,6 +30,7 @@ export interface CreateRoutineData {
   buildMethod: 'jay' | 'scratch';
   sessionName: string;
   routineName?: string;
+  messageToJay?: string;
 }
 
 interface Props {
@@ -94,6 +95,7 @@ export function CreateRoutineSheet({ sheetRef, onCreated, onBrowseLibrary }: Pro
   const [customSession, setCustomSession] = useState('');
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [routineName, setRoutineName] = useState('');
+  const [messageToJay, setMessageToJay] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const reset = useCallback(() => {
@@ -102,6 +104,7 @@ export function CreateRoutineSheet({ sheetRef, onCreated, onBrowseLibrary }: Pro
     setCustomSession('');
     setSelectedType(null);
     setRoutineName('');
+    setMessageToJay('');
     setSubmitting(false);
   }, []);
 
@@ -120,6 +123,7 @@ export function CreateRoutineSheet({ sheetRef, onCreated, onBrowseLibrary }: Pro
         buildMethod: 'jay',
         sessionName: finalSession,
         routineName: routineName.trim() || `${sessionLabel} Routine`,
+        messageToJay: messageToJay.trim() || undefined,
       });
       setTimeout(reset, 400);
       return;
@@ -144,6 +148,7 @@ export function CreateRoutineSheet({ sheetRef, onCreated, onBrowseLibrary }: Pro
         buildMethod: 'scratch',
         sessionName: finalSession,
         routineName: routineName.trim() || `${sessionLabel} Routine`,
+        messageToJay: undefined,
       });
       setTimeout(reset, 400);
       return;
@@ -166,6 +171,7 @@ export function CreateRoutineSheet({ sheetRef, onCreated, onBrowseLibrary }: Pro
       buildMethod: method,
       sessionName: finalSession,
       routineName: routineName.trim() || `${sessionLabel} — ${typeInfo?.name || 'Routine'}`,
+      messageToJay: method === 'jay' ? (messageToJay.trim() || undefined) : undefined,
     });
     setTimeout(reset, 400);
   }, [submitting, selectedType, finalSession, sessionLabel, routineName, onCreated, reset]);
@@ -193,6 +199,21 @@ export function CreateRoutineSheet({ sheetRef, onCreated, onBrowseLibrary }: Pro
           onChangeText={setRoutineName}
           autoCapitalize="words"
           returnKeyType="done"
+        />
+      </View>
+
+      {/* Message to JAY (optional) */}
+      <Text style={[$.label, { color: colors.secondaryLabel }]}>TELL JAY ANYTHING (OPTIONAL)</Text>
+      <View style={[$.inputWrap, { backgroundColor: colors.tertiarySystemFill }]}>
+        <TextInput
+          style={[$.input, $.messageInput, { color: colors.label }]}
+          placeholder="e.g. Budget under ₹1000, focus on acne scars, no fragrance, I have sensitive skin around eyes..."
+          placeholderTextColor={colors.quaternaryLabel}
+          value={messageToJay}
+          onChangeText={setMessageToJay}
+          multiline
+          textAlignVertical="top"
+          numberOfLines={3}
         />
       </View>
 
@@ -423,6 +444,7 @@ const $ = StyleSheet.create({
   // Name input
   inputWrap: { borderRadius: RADIUS.sm, marginBottom: SPACE.xl, overflow: 'hidden' },
   input: { fontSize: 16, fontFamily: 'Outfit', paddingHorizontal: SPACE.lg, paddingVertical: 14 },
+  messageInput: { minHeight: 60, fontSize: 14, lineHeight: 20, paddingTop: 12 },
 
   // Grouped table
   groupedTable: { borderRadius: RADIUS.sm, overflow: 'hidden', marginBottom: SPACE.sm },

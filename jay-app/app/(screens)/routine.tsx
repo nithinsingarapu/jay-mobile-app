@@ -172,7 +172,12 @@ export default function RoutineScreen() {
       if (data.buildMethod === 'jay') {
         router.push({
           pathname: '/(screens)/build-with-jay',
-          params: { sessionName: data.sessionName, routineType: data.routineType, routineName: name },
+          params: {
+            sessionName: data.sessionName,
+            routineType: data.routineType,
+            routineName: name,
+            messageToJay: data.messageToJay || '',
+          },
         } as any);
         return;
       }
