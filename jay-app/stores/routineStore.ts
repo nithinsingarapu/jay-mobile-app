@@ -252,8 +252,16 @@ export const useRoutineStore = create<RoutineState>((set, get) => ({
         if (amSteps.length > 0) await savePeriod('morning', amSteps);
         if (pmSteps.length > 0) await savePeriod('night', pmSteps);
       } else {
-        // All steps belong to one routine — use 'morning' as default
-        await savePeriod('morning', steps);
+        // No period field on steps — use the generated routine's period to decide
+        const genPeriod = generatedRoutine.period || 'both';
+        if (genPeriod === 'am' || genPeriod === 'morning') {
+          await savePeriod('morning', steps);
+        } else if (genPeriod === 'pm' || genPeriod === 'night' || genPeriod === 'evening') {
+          await savePeriod('night', steps);
+        } else {
+          // 'both' or unknown — save as morning by default
+          await savePeriod('morning', steps);
+        }
       }
 
       set({ generatedRoutine: null });

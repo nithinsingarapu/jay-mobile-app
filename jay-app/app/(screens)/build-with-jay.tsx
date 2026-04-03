@@ -201,14 +201,26 @@ export default function BuildWithJayScreen() {
     opacity: orbOpacity.value,
   }));
 
+  // Map session names to API period values
+  const sessionToPeriod = (session: string | undefined): string => {
+    const map: Record<string, string> = {
+      morning: 'am', afternoon: 'am',
+      evening: 'pm', night: 'pm',
+      full_day: 'both', both: 'both',
+      am: 'am', pm: 'pm',
+    };
+    return map[session || ''] || 'both';
+  };
+
   // Trigger generation on mount
   useEffect(() => {
-    const period = (params.period as 'am' | 'pm' | 'both') || 'both';
+    const session = params.sessionName || params.period || '';
+    const period = sessionToPeriod(session);
     const routineType = (params.routineType as string) || 'auto';
     const message = params.messageToJay?.trim() || undefined;
     generateRoutine({ period, routine_type: routineType, additional_instructions: message });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.period, params.routineType]);
+  }, [params.sessionName, params.period, params.routineType]);
 
   // Progress step simulation while generating
   useEffect(() => {
@@ -232,11 +244,12 @@ export default function BuildWithJayScreen() {
   }, [saveGeneratedRoutine, router]);
 
   const handleRegenerate = useCallback(() => {
-    const period = (params.period as 'am' | 'pm' | 'both') || 'both';
+    const session = params.sessionName || params.period || '';
+    const period = sessionToPeriod(session);
     const routineType = (params.routineType as string) || 'auto';
     const message = params.messageToJay?.trim() || undefined;
     generateRoutine({ period, routine_type: routineType, additional_instructions: message });
-  }, [params.period, params.routineType, params.messageToJay, generateRoutine]);
+  }, [params.sessionName, params.period, params.routineType, params.messageToJay, generateRoutine]);
 
   const progressSteps = [
     { label: 'Reading your skin profile', done: generationStep >= 1 },
