@@ -32,6 +32,11 @@ Required step categories: {template_steps}
 Maximum steps: {max_steps}
 
 ═══════════════════════════════════════════════════════
+USER'S EXISTING ROUTINES
+═══════════════════════════════════════════════════════
+{existing_routines}
+
+═══════════════════════════════════════════════════════
 USER'S SPECIFIC REQUIREMENTS
 ═══════════════════════════════════════════════════════
 Top goal: {top_goal}
@@ -39,6 +44,8 @@ Concerns to address: {concerns}
 Additional instructions: {additional_instructions}
 Products to keep from current routine: {keep_products}
 Allergens to AVOID: {allergies}
+
+IMPORTANT: If the user already has routines, this new routine should COMPLEMENT them, not duplicate steps. If the user says "just lipbalm and sunscreen" or specifies exact steps, follow their instructions precisely — don't add more steps than requested.
 
 ═══════════════════════════════════════════════════════
 AVAILABLE PRODUCTS (Only recommend from this list)

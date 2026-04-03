@@ -202,13 +202,14 @@ export function CreateRoutineSheet({ sheetRef, onCreated, onBrowseLibrary }: Pro
         />
       </View>
 
-      {/* Message to JAY (optional) */}
-      <Text style={[$.label, { color: colors.secondaryLabel }]}>TELL JAY ANYTHING (OPTIONAL)</Text>
-      <View style={[$.inputWrap, { backgroundColor: colors.tertiarySystemFill }]}>
+      {/* Message to JAY */}
+      <Text style={[$.label, { color: colors.secondaryLabel }]}>TELL JAY WHAT YOU NEED</Text>
+      <View style={[$.messageWrap, { backgroundColor: colors.systemBlue + '06', borderColor: colors.systemBlue + '20' }]}>
+        <Text style={{ fontSize: 16, marginRight: 8 }}>💬</Text>
         <TextInput
-          style={[$.input, $.messageInput, { color: colors.label }]}
-          placeholder="e.g. Budget under ₹1000, focus on acne scars, no fragrance, I have sensitive skin around eyes..."
-          placeholderTextColor={colors.quaternaryLabel}
+          style={[$.messageField, { color: colors.label }]}
+          placeholder={"e.g. Just lipbalm and sunscreen for midday\nBudget under ₹500, no fragrance\nFocus only on acne scars"}
+          placeholderTextColor={colors.tertiaryLabel}
           value={messageToJay}
           onChangeText={setMessageToJay}
           multiline
@@ -216,6 +217,9 @@ export function CreateRoutineSheet({ sheetRef, onCreated, onBrowseLibrary }: Pro
           numberOfLines={3}
         />
       </View>
+      <Text style={[$.messageHint, { color: colors.tertiaryLabel }]}>
+        JAY sees your existing routines and won't duplicate steps
+      </Text>
 
       {/* When */}
       <Text style={[$.sectionHeader, { color: colors.label }]}>When?</Text>
@@ -444,7 +448,13 @@ const $ = StyleSheet.create({
   // Name input
   inputWrap: { borderRadius: RADIUS.sm, marginBottom: SPACE.xl, overflow: 'hidden' },
   input: { fontSize: 16, fontFamily: 'Outfit', paddingHorizontal: SPACE.lg, paddingVertical: 14 },
-  messageInput: { minHeight: 60, fontSize: 14, lineHeight: 20, paddingTop: 12 },
+  messageWrap: {
+    borderRadius: RADIUS.sm, marginBottom: SPACE.xs, overflow: 'hidden',
+    flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: SPACE.md, paddingVertical: SPACE.md,
+    borderWidth: 1,
+  },
+  messageField: { flex: 1, fontFamily: 'Outfit', fontSize: 14, lineHeight: 20, minHeight: 54, padding: 0 },
+  messageHint: { fontSize: 11, fontFamily: 'Outfit', marginBottom: SPACE.xl, paddingLeft: 4 },
 
   // Grouped table
   groupedTable: { borderRadius: RADIUS.sm, overflow: 'hidden', marginBottom: SPACE.sm },

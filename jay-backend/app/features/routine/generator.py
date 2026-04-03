@@ -189,6 +189,26 @@ async def generate_routine(
 
     climate_note = _get_climate_note(profile)
 
+    # 3b. Load user's EXISTING routines so JAY knows what's already built
+    from .models import Routine, RoutineStep
+    from sqlalchemy.orm import selectinload
+    existing_result = await db.execute(
+        select(Routine)
+        .options(selectinload(Routine.steps))
+        .where(Routine.user_id == user.id, Routine.is_active == True)
+        .order_by(Routine.created_at)
+    )
+    existing_routines = existing_result.scalars().all()
+    existing_routines_text = ""
+    if existing_routines:
+        parts = []
+        for r in existing_routines:
+            step_names = [f"{s.category} ({s.custom_product_name or s.product_id or 'no product'})" for s in sorted(r.steps, key=lambda x: x.step_order)]
+            parts.append(f"  - {r.name} ({r.period}): {' → '.join(step_names)}")
+        existing_routines_text = "USER'S EXISTING ROUTINES (already built — DO NOT duplicate, complement them):\n" + "\n".join(parts)
+    else:
+        existing_routines_text = "USER'S EXISTING ROUTINES: None yet — this is their first routine."
+
     # 4. Generate for each period
     all_steps = []
     all_reasoning = []
@@ -226,6 +246,7 @@ async def generate_routine(
             "{skin_type}": skin_type,
             "{skin_type_rules}": json.dumps(skin_rules, indent=2) if skin_rules else "Standard care",
             "{allergies}": ", ".join(allergies) if allergies else "None reported",
+            "{existing_routines}": existing_routines_text,
             "{climate_note}": climate_note,
         }
         for k, v in replacements.items():
