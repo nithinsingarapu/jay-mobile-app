@@ -297,6 +297,20 @@ export const useRoutineStore = create<RoutineState>((set, get) => ({
 
 // ── Helper ────────────────────────────────────────────────────────────
 
+const VALID_FREQUENCIES = ['daily', 'every_other_day', '2x_week', '3x_week', 'weekly', 'as_needed'];
+
+function _normalizeFrequency(freq: unknown): string {
+  const s = String(freq || 'daily').toLowerCase().trim();
+  if (VALID_FREQUENCIES.includes(s)) return s;
+  // Map common AI variations
+  if (s.includes('every other') || s.includes('alternate')) return 'every_other_day';
+  if (s.includes('twice') || s.includes('2x') || s.includes('2 times')) return '2x_week';
+  if (s.includes('thrice') || s.includes('3x') || s.includes('3 times')) return '3x_week';
+  if (s.includes('week')) return 'weekly';
+  if (s.includes('need') || s.includes('occasion')) return 'as_needed';
+  return 'daily';
+}
+
 function _toStepReq(step: any): Record<string, unknown> {
   const displayName =
     step.product_brand && step.product_name
@@ -315,7 +329,7 @@ function _toStepReq(step: any): Record<string, unknown> {
       typeof step.wait_time_seconds === 'number'
         ? step.wait_time_seconds
         : undefined,
-    frequency: (step.frequency as string) || 'daily',
+    frequency: _normalizeFrequency(step.frequency),
     frequency_days: step.frequency_days || undefined,
     is_essential: step.is_essential ?? true,
     notes: step.why_this_product || undefined,
