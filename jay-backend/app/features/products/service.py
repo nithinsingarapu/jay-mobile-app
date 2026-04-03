@@ -72,8 +72,13 @@ _CATEGORY_SEARCH = {
 async def search_for_routine_step(
     db: AsyncSession, category: str, budget: float | None = None,
     exclude_ingredients: list[str] | None = None, skin_type: str | None = None,
-    limit: int = 5,
+    limit: int = 10,
 ) -> list[Product]:
+    """Search products for a routine step category.
+    Orders by rating (best first), then by name.
+    Budget is optional — pass None for no budget constraint.
+    """
+    from sqlalchemy import desc, nulls_last
     # Match multiple DB categories for a single routine step category
     db_categories = _CATEGORY_SEARCH.get(category, [category])
     stmt = select(Product).where(Product.is_available == True, Product.category.in_(db_categories))
@@ -87,6 +92,11 @@ async def search_for_routine_step(
                     ~Product.key_ingredients.any(ing.lower()),
                 )
             )
-    stmt = stmt.order_by(Product.name).limit(limit)
+    # Order by rating (highest first), then review count, then name
+    stmt = stmt.order_by(
+        desc(Product.rating).nulls_last(),
+        desc(Product.review_count).nulls_last(),
+        Product.name,
+    ).limit(limit)
     result = await db.execute(stmt)
     return list(result.scalars().all())

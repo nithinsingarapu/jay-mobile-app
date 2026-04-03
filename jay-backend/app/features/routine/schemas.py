@@ -150,8 +150,9 @@ class GeneratedRoutineOut(BaseModel):
     routine_type: str
     period: str
     name: str
-    total_monthly_cost: float
-    steps: list[dict]
-    reasoning: str
+    description: str = ""
+    total_monthly_cost: float = 0
+    steps: list[dict] = []
+    reasoning: str = ""
     tips: list[str] = []
     conflicts_checked: list[dict] = []

@@ -8,8 +8,6 @@ CV MODELS : Orbo.ai (Indian Specific), Perfect Corp (Fastest SDK integration)
 //BUILD A FILE UPLOAD FEATURE IN JAY_CHAT
 
 
- Buddy look.                                                                                                                        
-  The Current Routine Section looks very messy.   
-  I want you to Go through and deeply understand Apple Health APP and also Apple Reminders App for UI, UX  and Functionality
-  references. Understand How they work, How can we implement those features in the Routines Section.  
-  This section is our MOAT, so we need it to be the best. 
+//WORK ON Routine Generator - AI Preciseness
+//WORK ON GETTING LIVE DATA PIPELINES FOR DISCOVER SECTION.
+//WORK ON RESEARCH ENGINE

@@ -1,19 +1,160 @@
 """
 AI routine generation — "Build with JAY".
+
+Improvements over v1:
+- Smart auto-type: maps user concerns → best routine type (not just complexity preference)
+- Budget-unaware: recommends the BEST products, not cheapest
+- Richer product data: includes ratings, reviews, descriptions, formulation flags
+- More products per category (10 instead of 5)
+- Climate-aware: uses user location for seasonal adjustments
+- Passes user's top_goal and specific concerns to the LLM
+- Better system prompt: stricter JSON, more specific instructions
+- description field in output
 """
 import json
+import re
+from datetime import datetime
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import CurrentUser
 from app.ai.context import build_user_context
 from app.features.profile.models import UserProfile
 from app.features.products.service import search_for_routine_step
+from app.features.products.models import Product
 from .constants import ROUTINE_TYPES, STEP_CATEGORIES, SKIN_TYPE_RULES, APPLICATION_ORDER
 from .models import RoutineGeneration
-from .prompts import ROUTINE_GENERATION_PROMPT
+from .prompts import SYSTEM_PROMPT, ROUTINE_GENERATION_PROMPT
 from .schemas import GenerateRoutineRequest, GeneratedRoutineOut
-from sqlalchemy import select
 
+
+# ── Smart auto-type mapping ──────────────────────────────────────────────
+
+def _infer_routine_type(profile) -> str:
+    """Map user's concerns + preferences to the best routine type."""
+    if not profile:
+        return "complete"
+
+    concerns = set(profile.primary_concerns or [])
+    preferences = profile.preferences or {}
+
+    # Check concerns first — specific needs override complexity preference
+    acne_signals = {"acne", "breakouts", "blackheads", "whiteheads", "oily_skin", "pimples", "cystic_acne"}
+    if concerns & acne_signals:
+        return "anti_acne"
+
+    barrier_signals = {"sensitivity", "irritation", "redness", "barrier_damage", "over_exfoliated", "eczema"}
+    if concerns & barrier_signals:
+        return "barrier_repair"
+
+    aging_signals = {"fine_lines", "wrinkles", "sagging", "loss_of_firmness", "photoaging"}
+    pigment_signals = {"dark_spots", "hyperpigmentation", "melasma", "uneven_tone", "pih"}
+
+    if concerns & aging_signals and concerns & pigment_signals:
+        return "glass_skin"  # Needs multi-active approach
+    if concerns & aging_signals:
+        return "complete"  # Retinol + vitamin C + peptides
+    if concerns & pigment_signals:
+        return "complete"  # Needs actives like vitamin C, arbutin
+
+    # Fall back to complexity preference
+    complexity = preferences.get("routine_complexity", "moderate_4_5")
+    return {
+        "minimal_1_3": "essential",
+        "moderate_4_5": "complete",
+        "elaborate_6_plus": "glass_skin",
+        "whatever_works": "complete",
+    }.get(complexity, "complete")
+
+
+# ── Climate helper ────────────────────────────────────────────────────────
+
+def _get_climate_note(profile) -> str:
+    """Generate climate-aware skincare advice based on location and current month."""
+    month = datetime.now().month
+    location = ""
+    if profile and profile.location_city:
+        location = profile.location_city
+        if profile.location_state:
+            location += f", {profile.location_state}"
+
+    # Indian climate zones
+    season = "moderate"
+    if month in (4, 5, 6):
+        season = "hot_summer"
+    elif month in (7, 8, 9):
+        season = "monsoon"
+    elif month in (11, 12, 1, 2):
+        season = "winter"
+    else:
+        season = "transition"
+
+    notes = {
+        "hot_summer": f"Currently SUMMER in {location or 'India'}. Recommend lightweight gel textures, mattifying SPF, minimal occlusion. Higher UV index — SPF 50+ essential. Avoid heavy creams.",
+        "monsoon": f"Currently MONSOON in {location or 'India'}. High humidity — use lightweight, non-comedogenic products. Anti-fungal awareness important. Double cleanse daily. Water-resistant SPF.",
+        "winter": f"Currently WINTER in {location or 'India'}. Barrier protection critical — richer creams, facial oils, ceramides. Reduce exfoliation frequency. Humectants (HA) need occlusive seal.",
+        "transition": f"Transition season in {location or 'India'}. Moderate approach — balanced textures, standard SPF 30-50.",
+        "moderate": f"Location: {location or 'India'}. Standard recommendations apply.",
+    }
+    return notes.get(season, notes["moderate"])
+
+
+# ── Enhanced product search ──────────────────────────────────────────────
+
+async def _get_products_for_category(
+    db: AsyncSession, category: str, allergies: list[str], skin_type: str | None
+) -> str:
+    """Search products with richer data — ratings, reviews, formulation flags."""
+    products = await search_for_routine_step(
+        db, category=category,
+        budget=None,  # No budget constraint — recommend the BEST
+        exclude_ingredients=allergies,
+        skin_type=skin_type,
+        limit=10,  # More options for LLM to choose from
+    )
+
+    if not products:
+        return f"\n[{category.upper()}]: No products found in database. Suggest a custom product name with specific ingredients."
+
+    lines = []
+    for p in products:
+        price = f"₹{p.price_inr}" if p.price_inr else "price TBD"
+        rating = f"★{p.rating}/5 ({p.review_count} reviews)" if hasattr(p, 'rating') and p.rating else "no reviews yet"
+        ings = ", ".join(p.key_ingredients[:6]) if p.key_ingredients else "ingredients unlisted"
+
+        # Formulation flags
+        flags = []
+        if hasattr(p, 'formulation') and p.formulation:
+            f = p.formulation
+            if f.get("fragrance_free"): flags.append("fragrance-free")
+            if f.get("paraben_free"): flags.append("paraben-free")
+            if f.get("alcohol_free"): flags.append("alcohol-free")
+        flag_str = f" | Flags: {', '.join(flags)}" if flags else ""
+
+        # Suitable for
+        suitable = ""
+        if hasattr(p, 'suitable_for') and p.suitable_for:
+            s = p.suitable_for
+            types = s.get("skin_types", [])
+            if types:
+                suitable = f" | For: {', '.join(types)}"
+            if s.get("pregnancy_safe"):
+                suitable += " | Pregnancy-safe"
+
+        desc_snippet = (p.description or "")[:100]
+
+        lines.append(
+            f"  - ID:{p.id} | {p.brand} — {p.name} | {price} | {rating}\n"
+            f"    Key ingredients: {ings}{flag_str}{suitable}\n"
+            f"    {desc_snippet}{'...' if len(p.description or '') > 100 else ''}"
+        )
+
+    return f"\n[{category.upper()}] ({len(products)} options):\n" + "\n".join(lines)
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# MAIN GENERATOR
+# ══════════════════════════════════════════════════════════════════════════
 
 async def generate_routine(
     user: CurrentUser, data: GenerateRoutineRequest, db: AsyncSession
@@ -24,160 +165,110 @@ async def generate_routine(
     )
     profile = profile_result.scalar_one_or_none()
 
-    # 2. Determine routine type
+    # 2. Smart routine type inference
     routine_type = data.routine_type
     if routine_type == "auto":
-        complexity = "moderate"
-        if profile and profile.preferences:
-            pref_complexity = profile.preferences.get("routine_complexity", "")
-            complexity_map = {
-                "minimal_1_3": "essential",
-                "moderate_4_5": "complete",
-                "elaborate_6_plus": "glass_skin",
-                "whatever_works": "complete",
-            }
-            routine_type = complexity_map.get(pref_complexity, "complete")
-        else:
-            routine_type = "complete"
+        routine_type = _infer_routine_type(profile)
 
     type_info = ROUTINE_TYPES.get(routine_type, ROUTINE_TYPES["complete"])
     periods = ["am", "pm"] if data.period == "both" else [data.period]
 
-    # 3. Build user context
+    # 3. Build rich user context
     user_context = await build_user_context(user.id, db)
 
-    # Extract profile data for prompt
+    # Extract key fields for prompt placeholders
     allergies = profile.allergies if profile and profile.allergies else []
     skin_type = profile.skin_type if profile else "combination"
-    budget = "no limit"
-    product_preference = "no preference"
-    if profile and profile.preferences:
-        budget_map = {"under_500": "under Rs.500", "500_1000": "Rs.500-1000", "1000_2000": "Rs.1000-2000", "2000_plus": "Rs.2000+", "no_limit": "no limit"}
-        budget = budget_map.get(profile.preferences.get("budget_range", ""), "no limit")
-        product_preference = profile.preferences.get("product_preference", "no preference")
-
     skin_rules = SKIN_TYPE_RULES.get(skin_type, {})
+    concerns = ", ".join(profile.primary_concerns) if profile and profile.primary_concerns else "general skin health"
+    top_goal = "healthy, clear skin"
+    if profile and profile.preferences:
+        raw_goal = profile.preferences.get("top_goal", "")
+        if raw_goal:
+            top_goal = raw_goal.replace("_", " ")
 
-    # Generate for each period
+    climate_note = _get_climate_note(profile)
+
+    # 4. Generate for each period
     all_steps = []
     all_reasoning = []
     all_tips = []
     all_conflicts = []
     total_cost = 0
+    all_descriptions = []
 
     for period in periods:
         template = type_info.get(f"{period}_template", [])
 
-        # 4. Query products for each template slot
+        # 5. Query products with rich data — NO budget constraint
         available_products_text = ""
         for cat in template:
-            # search_for_routine_step handles category mapping internally
-            products = await search_for_routine_step(
-                db, category=cat,
-                budget=2000,
-                exclude_ingredients=allergies,
-                limit=5,
+            available_products_text += await _get_products_for_category(
+                db, cat, allergies, skin_type
             )
-            if products:
-                product_lines = []
-                for p in products:
-                    price_str = f"Rs.{p.price_inr}" if p.price_inr else "price unknown"
-                    ings = ", ".join(p.key_ingredients[:5]) if p.key_ingredients else "ingredients not listed"
-                    product_lines.append(f"  - ID:{p.id} | {p.brand} — {p.name} | {price_str} | Key: {ings}")
-                available_products_text += f"\n[{cat.upper()}]:\n" + "\n".join(product_lines)
-            else:
-                available_products_text += f"\n[{cat.upper()}]: No products found — suggest user add custom product name"
 
-        # 5. Build prompt
+        # 6. Build the prompt
         app_order = APPLICATION_ORDER.get(period, {})
-        # Use replace() not .format() — skin_type_rules contains JSON braces
         prompt = ROUTINE_GENERATION_PROMPT
-        for k, v in {
-            "{period}": period,
+        replacements = {
+            "{period}": period.upper(),
             "{user_context}": user_context,
             "{routine_type}": routine_type,
+            "{type_description}": type_info.get("description", ""),
             "{template_steps}": ", ".join(template),
+            "{max_steps}": str(type_info.get("max_steps", 7)),
+            "{top_goal}": top_goal,
+            "{concerns}": concerns,
             "{additional_instructions}": data.additional_instructions or "None",
             "{keep_products}": "None specified" if not data.keep_products else str(data.keep_products),
-            "{available_products}": available_products_text or "No products in database yet",
+            "{available_products}": available_products_text or "No products in database yet. Suggest custom product names.",
             "{application_order_rules}": "\n".join(app_order.get("rules", [])),
-            "{skin_type_rules}": json.dumps(skin_rules, indent=2),
-            "{budget_range}": budget,
-            "{allergies}": ", ".join(allergies) if allergies else "None",
-            "{max_steps}": str(type_info.get("max_steps", 7)),
-            "{product_preference}": product_preference,
-        }.items():
+            "{skin_type}": skin_type,
+            "{skin_type_rules}": json.dumps(skin_rules, indent=2) if skin_rules else "Standard care",
+            "{allergies}": ", ".join(allergies) if allergies else "None reported",
+            "{climate_note}": climate_note,
+        }
+        for k, v in replacements.items():
             prompt = prompt.replace(k, str(v))
 
-        # 6. Call Gemini
+        # 7. Call LLM
         try:
             from app.ai.providers.gemini import GeminiProvider
             provider = GeminiProvider()
             response_text = await provider.generate(
-                system_prompt="You are JAY, a skincare expert. Respond ONLY with valid JSON. Use null for unknown prices, never strings like 'price unknown'.",
+                system_prompt=SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.5,
+                temperature=0.3,  # Lower = more reliable, consistent output
                 max_tokens=8000,
             )
 
-            # Parse JSON from response — handle markdown wrapping + common Gemini quirks
-            response_text = response_text.strip()
-            # Strip markdown code fences
-            if "```" in response_text:
-                # Extract content between first ``` and last ```
-                parts = response_text.split("```")
-                # The JSON is usually in parts[1] (between first pair of ```)
-                for part in parts:
-                    cleaned = part.strip()
-                    if cleaned.startswith("json"):
-                        cleaned = cleaned[4:].strip()
-                    if cleaned.startswith("{"):
-                        response_text = cleaned
-                        break
-            # Try parsing as-is first
-            try:
-                result = json.loads(response_text)
-            except json.JSONDecodeError:
-                # Fix common issues: single quotes, trailing commas, unquoted keys
-                import re
-                fixed = response_text
-                # Replace single quotes around keys/values with double quotes
-                fixed = re.sub(r"'([^']*)'", r'"\1"', fixed)
-                # Remove trailing commas before } or ]
-                fixed = re.sub(r',\s*([}\]])', r'\1', fixed)
-                # Try again
-                try:
-                    result = json.loads(fixed)
-                except json.JSONDecodeError:
-                    # Last resort: find the first { and last } and try that
-                    start = fixed.find('{')
-                    end = fixed.rfind('}')
-                    if start != -1 and end != -1:
-                        result = json.loads(fixed[start:end + 1])
-                    else:
-                        raise
+            # 8. Parse JSON response
+            result = _parse_llm_json(response_text)
 
+            # 9. Normalize steps
             steps = result.get("steps", [])
             for s in steps:
                 s["period"] = period
-                # Fix price — Gemini sometimes returns "price unknown" instead of null
                 if isinstance(s.get("product_price"), str):
                     s["product_price"] = None
                 if isinstance(s.get("wait_time_seconds"), str):
-                    try: s["wait_time_seconds"] = int(s["wait_time_seconds"])
-                    except: s["wait_time_seconds"] = None
+                    try:
+                        s["wait_time_seconds"] = int(s["wait_time_seconds"])
+                    except (ValueError, TypeError):
+                        s["wait_time_seconds"] = None
+
             all_steps.extend(steps)
             all_reasoning.append(result.get("reasoning", ""))
             all_tips.extend(result.get("tips", []))
             all_conflicts.extend(result.get("conflicts_checked", []))
-            # Fix cost — might be string or null
+            all_descriptions.append(result.get("description", ""))
+
             cost_val = result.get("total_monthly_cost", 0)
             if isinstance(cost_val, (int, float)):
                 total_cost += cost_val
 
         except Exception as e:
             print(f"[Routine Generator] Error for {period}: {e}")
-            print(f"[Routine Generator] Raw response: {response_text[:500] if 'response_text' in dir() else 'no response'}")
             # Fallback — return template without specific products
             for idx, cat in enumerate(template):
                 cat_info = STEP_CATEGORIES.get(cat, {})
@@ -188,16 +279,17 @@ async def generate_routine(
                     "product_name": None,
                     "product_brand": None,
                     "product_price": None,
-                    "instruction": cat_info.get("default_instruction", ""),
+                    "instruction": cat_info.get("default_instruction", "Apply as directed"),
                     "wait_time_seconds": cat_info.get("wait_time_seconds"),
                     "frequency": cat_info.get("frequency", "daily"),
                     "is_essential": cat_info.get("is_essential", True),
-                    "why_this_product": f"AI unavailable ({str(e)[:50]}). Fill in your preferred product.",
+                    "why_this_product": None,
                     "period": period,
                 })
-            all_reasoning.append(f"AI generation failed: {str(e)[:100]}. Template provided for manual filling.")
+            all_reasoning.append(f"AI generation failed for {period}: {str(e)[:100]}. Template provided — add your own products.")
+            all_descriptions.append(f"{type_info.get('name', 'Custom')} routine — fill in products manually.")
 
-    # 7. Save generation record
+    # 10. Save generation record
     gen_record = RoutineGeneration(
         user_id=user.id,
         routine_type=routine_type,
@@ -205,21 +297,75 @@ async def generate_routine(
         input_profile_snapshot={
             "skin_type": skin_type,
             "concerns": profile.primary_concerns if profile else [],
-            "budget": budget,
             "allergies": allergies,
+            "top_goal": top_goal,
+            "climate": climate_note[:100],
         },
         generated_routine={"steps": all_steps, "reasoning": " ".join(all_reasoning)},
     )
     db.add(gen_record)
     await db.flush()
 
+    # 11. Build response
+    routine_name = f"JAY's {type_info['name']} Routine"
+    if all_steps and all_steps[0].get("period") == "am":
+        routine_name = result.get("name", routine_name) if 'result' in dir() else routine_name
+
     return GeneratedRoutineOut(
         routine_type=routine_type,
         period=data.period,
-        name=f"JAY's {type_info['name']} routine",
+        name=routine_name,
+        description=" ".join(filter(None, all_descriptions)) or f"Personalized {type_info['name']} routine for {skin_type} skin.",
         total_monthly_cost=total_cost,
         steps=all_steps,
-        reasoning=" ".join(all_reasoning),
-        tips=list(set(all_tips)),
+        reasoning=" ".join(filter(None, all_reasoning)),
+        tips=list(dict.fromkeys(all_tips)),  # Deduplicate while preserving order
         conflicts_checked=all_conflicts,
     )
+
+
+# ── JSON parser with error recovery ──────────────────────────────────────
+
+def _parse_llm_json(text: str) -> dict:
+    """Parse JSON from LLM response with aggressive error recovery."""
+    text = text.strip()
+
+    # Strip markdown code fences
+    if "```" in text:
+        for part in text.split("```"):
+            cleaned = part.strip()
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:].strip()
+            if cleaned.startswith("{"):
+                text = cleaned
+                break
+
+    # Try as-is
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # Fix common LLM quirks
+    fixed = text
+    fixed = re.sub(r"'([^']*)'", r'"\1"', fixed)  # single → double quotes
+    fixed = re.sub(r',\s*([}\]])', r'\1', fixed)  # trailing commas
+    fixed = re.sub(r':\s*None', ': null', fixed)  # Python None → JSON null
+    fixed = re.sub(r':\s*True', ': true', fixed)  # Python True → JSON true
+    fixed = re.sub(r':\s*False', ': false', fixed)  # Python False → JSON false
+
+    try:
+        return json.loads(fixed)
+    except json.JSONDecodeError:
+        pass
+
+    # Last resort: extract JSON object
+    start = fixed.find('{')
+    end = fixed.rfind('}')
+    if start != -1 and end != -1 and end > start:
+        try:
+            return json.loads(fixed[start:end + 1])
+        except json.JSONDecodeError:
+            pass
+
+    raise ValueError(f"Could not parse LLM response as JSON. First 200 chars: {text[:200]}")
