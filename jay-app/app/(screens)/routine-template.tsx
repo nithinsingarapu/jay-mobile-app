@@ -3,7 +3,7 @@
  * Shows full details for a routine template from the library.
  * Pushed via templateId route param.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   StyleSheet,
   Pressable,
   Share,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -18,6 +19,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../lib/theme';
 import { SPACE, RADIUS } from '../../constants/theme';
 import { getTemplateById } from '../../data/routineLibrary';
+import { useRoutineStore } from '../../stores/routineStore';
 
 export default function RoutineTemplateScreen() {
   const { colors } = useTheme();
@@ -233,18 +235,85 @@ export default function RoutineTemplateScreen() {
           <Pressable
             style={[s.primaryBtn, { backgroundColor: colors.systemBlue }]}
             onPress={() => {
-              router.push({ pathname: '/(screens)/build-with-jay', params: { templateId: template.id } });
+              // Map template to the correct routine type for the generator
+              // The template has categories like 'core', 'concern', 'cultural', 'trending', etc.
+              // Map to backend routine types: essential, complete, glass_skin, barrier_repair, anti_acne, custom
+              const typeMap: Record<string, string> = {
+                essential_3step: 'essential',
+                standard_4step: 'complete',
+                standard_5_6: 'complete',
+                extended_7_9: 'glass_skin',
+                kbeauty_10: 'glass_skin',
+                acne: 'anti_acne',
+                anti_aging: 'complete',
+                hyperpigmentation: 'complete',
+                rosacea: 'barrier_repair',
+                sensitive: 'barrier_repair',
+                barrier_repair: 'barrier_repair',
+                eczema: 'barrier_repair',
+                psoriasis: 'barrier_repair',
+              };
+              const routineType = typeMap[template.id] || 'auto';
+
+              router.push({
+                pathname: '/(screens)/build-with-jay',
+                params: {
+                  routineType,
+                  period: 'both',
+                  routineName: template.name,
+                  messageToJay: `Build a "${template.name}" routine. Philosophy: ${template.philosophy}. Key ingredients: ${template.keyIngredients.join(', ')}. Best for: ${template.bestFor.join(', ')}.`,
+                },
+              } as any);
             }}
           >
-            <Text style={s.primaryBtnText}>Build This Routine</Text>
+            <Text style={s.primaryBtnText}>Build This Routine with JAY</Text>
           </Pressable>
+
           <Pressable
-            style={[s.secondaryBtn, { backgroundColor: colors.secondarySystemBackground }]}
-            onPress={() => {
-              // TODO: save for later logic
+            style={[s.primaryBtn, { backgroundColor: colors.secondarySystemBackground }]}
+            onPress={async () => {
+              // Create empty routine with this template's type and navigate to edit
+              const store = useRoutineStore.getState();
+              const typeMap: Record<string, string> = {
+                essential_3step: 'essential', standard_4step: 'complete', standard_5_6: 'complete',
+                extended_7_9: 'glass_skin', kbeauty_10: 'glass_skin', acne: 'anti_acne',
+                barrier_repair: 'barrier_repair', sensitive: 'barrier_repair',
+              };
+              const routineType = typeMap[template.id] || 'custom';
+              try {
+                const created = await store.createRoutine({
+                  name: template.name,
+                  period: 'morning',
+                  routine_type: routineType,
+                  description: template.philosophy,
+                });
+                if (created) {
+                  // Add template step categories
+                  for (const step of template.protocol) {
+                    await store.addStep(created.id, {
+                      category: step.name.toLowerCase().replace(/\s+/g, '_'),
+                      instruction: step.description,
+                    });
+                  }
+                  router.replace({ pathname: '/(screens)/routine-edit', params: { routineId: created.id } } as any);
+                }
+              } catch (e) {
+                Alert.alert('Error', 'Failed to create routine. Try again.');
+              }
             }}
           >
-            <Text style={[s.secondaryBtnText, { color: colors.label }]}>Save for Later</Text>
+            <Text style={[s.primaryBtnText, { color: colors.label }]}>Build Manually from Template</Text>
+          </Pressable>
+
+          <Pressable
+            style={[s.secondaryBtn, { backgroundColor: colors.tertiarySystemFill }]}
+            onPress={() => {
+              Share.share({
+                message: `Check out the "${template.name}" skincare routine on JAY!\n\n${template.philosophy}\n\nKey ingredients: ${template.keyIngredients.join(', ')}\n\nDownload JAY to try it.`,
+              });
+            }}
+          >
+            <Text style={[s.secondaryBtnText, { color: colors.secondaryLabel }]}>Share This Routine</Text>
           </Pressable>
         </View>
       </ScrollView>
