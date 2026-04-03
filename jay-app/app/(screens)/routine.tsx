@@ -126,11 +126,13 @@ export default function RoutineScreen() {
 
   useEffect(() => {
     init();
+    loadConflicts();
   }, []);
 
   useEffect(() => {
     loadStats(statsPeriodDays);
   }, [statsPeriodDays]);
+
 
   /* ── Derived ──────────────────────────────────────────────── */
 
@@ -177,8 +179,11 @@ export default function RoutineScreen() {
         period: data.sessionName,
         routine_type: data.routineType,
       });
-      if (data.buildMethod === 'scratch' && created) {
-        router.push({ pathname: '/(screens)/routine-edit', params: { routineId: created.id } } as any);
+      if (created) {
+        setSelectedRoutineId(created.id);
+        if (data.buildMethod === 'scratch' || data.buildMethod === 'template') {
+          router.push({ pathname: '/(screens)/routine-edit', params: { routineId: created.id } } as any);
+        }
       }
     },
     [createRoutine, router],
@@ -200,8 +205,8 @@ export default function RoutineScreen() {
   }, []);
 
   const handleTemplatePress = useCallback(
-    (id: string) => {
-      router.push({ pathname: '/routine-template', params: { id } });
+    (templateId: string) => {
+      router.push({ pathname: '/(screens)/routine-template', params: { templateId } } as any);
     },
     [router],
   );
@@ -464,26 +469,34 @@ export default function RoutineScreen() {
             adherence={stats?.adherence_percentage}
             streak={streak.current_streak}
             onPress={() =>
-              router.push({ pathname: '/routine-detail', params: { id: routine.id } })
+              router.push({ pathname: '/(screens)/routine-detail', params: { routineId: routine.id } } as any)
             }
             onEdit={() =>
-              router.push({ pathname: '/routine-edit', params: { id: routine.id } })
+              router.push({ pathname: '/(screens)/routine-edit', params: { routineId: routine.id } } as any)
             }
             onMore={() =>
-              Alert.alert('Options', undefined, [
+              Alert.alert('Routine Options', routine.name || 'Routine', [
                 {
                   text: 'Duplicate',
                   onPress: () => createRoutine({ name: `${routine.name} (copy)`, period: routine.period, routine_type: routine.routine_type }),
                 },
                 {
-                  text: 'Deactivate',
-                  style: 'destructive',
-                  onPress: () => deleteRoutine(routine.id),
-                },
-                {
                   text: 'Share',
                   onPress: () =>
-                    Share.share({ message: `Check out my ${routine.name} routine!` }),
+                    Share.share({ message: `Check out my "${routine.name}" skincare routine on JAY!\n\n${routine.steps.length} steps · ${routine.routine_type}` }),
+                },
+                {
+                  text: 'Deactivate',
+                  style: 'destructive',
+                  onPress: () =>
+                    Alert.alert(
+                      'Deactivate routine?',
+                      'This routine will be saved but won\'t track daily progress anymore.',
+                      [
+                        { text: 'Keep Active', style: 'cancel' },
+                        { text: 'Deactivate', style: 'destructive', onPress: () => deleteRoutine(routine.id) },
+                      ]
+                    ),
                 },
                 { text: 'Cancel', style: 'cancel' },
               ])
