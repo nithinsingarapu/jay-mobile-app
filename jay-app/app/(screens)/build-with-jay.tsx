@@ -158,6 +158,8 @@ export default function BuildWithJayScreen() {
     description: string;
     period: string;
     routineType: string;
+    sessionName: string;
+    routineName: string;
   }>();
 
   const {

@@ -58,7 +58,13 @@ export async function apiFetch<T = unknown>(
 
     if (!res.ok) {
       const error = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(error.detail || `API error ${res.status}`);
+      const detail = error.detail;
+      const msg = typeof detail === 'string'
+        ? detail
+        : Array.isArray(detail)
+        ? detail.map((d: any) => d.msg || JSON.stringify(d)).join('; ')
+        : `API error ${res.status}`;
+      throw new Error(msg);
     }
 
     const text = await res.text();

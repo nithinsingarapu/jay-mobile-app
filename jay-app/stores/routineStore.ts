@@ -221,28 +221,39 @@ export const useRoutineStore = create<RoutineState>((set, get) => ({
     const { generatedRoutine } = get();
     if (!generatedRoutine) return false;
     try {
-      const amSteps = generatedRoutine.steps.filter((s) => s.period === 'am');
-      const pmSteps = generatedRoutine.steps.filter((s) => s.period === 'pm');
+      const steps = generatedRoutine.steps || [];
+      const amSteps = steps.filter((s: any) => s.period === 'am');
+      const pmSteps = steps.filter((s: any) => s.period === 'pm');
       const hasPerField = amSteps.length > 0 || pmSteps.length > 0;
 
-      const saveSteps = async (period: 'am' | 'pm', steps: typeof generatedRoutine.steps) => {
-        if (steps.length === 0) return;
+      // Use reasoning as description if available
+      const desc = (generatedRoutine as any).reasoning
+        ? String((generatedRoutine as any).reasoning).slice(0, 500)
+        : undefined;
+
+      const savePeriod = async (period: string, periodSteps: any[]) => {
+        if (periodSteps.length === 0) return;
         const r = await routineService.create({
-          name: generatedRoutine.name,
+          name: generatedRoutine.name || `${period} Routine`,
           period,
-          routine_type: generatedRoutine.routine_type,
-          description: generatedRoutine.description,
+          routine_type: generatedRoutine.routine_type || 'custom',
+          description: desc,
         });
-        for (const s of steps) {
-          await routineService.addStep(r.id, _toStepReq(s));
+        for (const s of periodSteps) {
+          try {
+            await routineService.addStep(r.id, _toStepReq(s));
+          } catch (stepErr) {
+            console.warn('[Routine] Failed to add step:', s.category, stepErr);
+          }
         }
       };
 
       if (hasPerField) {
-        await saveSteps('am', amSteps);
-        await saveSteps('pm', pmSteps);
+        if (amSteps.length > 0) await savePeriod('morning', amSteps);
+        if (pmSteps.length > 0) await savePeriod('night', pmSteps);
       } else {
-        await saveSteps('am', generatedRoutine.steps);
+        // All steps belong to one routine — use 'morning' as default
+        await savePeriod('morning', steps);
       }
 
       set({ generatedRoutine: null });
