@@ -203,11 +203,26 @@ async def generate_routine(
     if existing_routines:
         parts = []
         for r in existing_routines:
-            step_names = [f"{s.category} ({s.custom_product_name or s.product_id or 'no product'})" for s in sorted(r.steps, key=lambda x: x.step_order)]
-            parts.append(f"  - {r.name} ({r.period}): {' → '.join(step_names)}")
-        existing_routines_text = "USER'S EXISTING ROUTINES (already built — DO NOT duplicate, complement them):\n" + "\n".join(parts)
+            sorted_steps = sorted(r.steps, key=lambda x: x.step_order)
+            step_details = []
+            for s in sorted_steps:
+                product = s.custom_product_name or f"product_id:{s.product_id}" if s.product_id else "no product yet"
+                detail = f"    {s.step_order}. {s.category} → {product}"
+                if s.instruction:
+                    detail += f" ({s.instruction[:60]})"
+                step_details.append(detail)
+            parts.append(f"  [{r.name}] session={r.period}, type={r.routine_type}, {len(sorted_steps)} steps:\n" + "\n".join(step_details))
+        existing_routines_text = "\n".join(parts)
+        # Add summary of what's covered
+        all_cats = set()
+        all_periods = set()
+        for r in existing_routines:
+            all_periods.add(r.period)
+            for s in r.steps:
+                all_cats.add(s.category)
+        existing_routines_text += f"\n\n  COVERAGE SUMMARY: Periods covered = {', '.join(sorted(all_periods))}. Categories covered = {', '.join(sorted(all_cats))}."
     else:
-        existing_routines_text = "USER'S EXISTING ROUTINES: None yet — this is their first routine."
+        existing_routines_text = "None yet — this is their first routine. Build a complete foundation."
 
     # 4. Generate for each period
     all_steps = []
@@ -217,26 +232,43 @@ async def generate_routine(
     total_cost = 0
     all_descriptions = []
 
+    # All possible skincare categories — used when JAY needs to decide freely
+    ALL_CATEGORIES = [
+        'cleanser', 'toner', 'serum', 'moisturizer', 'sunscreen',
+        'treatment', 'eye_cream', 'exfoliant', 'lip_balm',
+        'face_oil', 'essence', 'sleeping_mask', 'spot_treatment',
+    ]
+
     for period in periods:
         template = type_info.get(f"{period}_template", [])
 
-        # 5. Query products — from template + any categories mentioned in user's message
-        categories_to_search = list(template)
+        # 5. Decide which product categories to search
+        # If "auto" type with existing routines → search ALL categories so JAY can pick freely
+        # If specific type → use template + any extras from user message
+        has_existing = len(existing_routines) > 0
+        is_auto = data.routine_type == 'auto'
 
-        # Parse user message for additional product categories to search
+        if is_auto and has_existing:
+            # JAY decides — give it ALL product categories to choose from
+            categories_to_search = list(ALL_CATEGORIES)
+        else:
+            categories_to_search = list(template) if template else list(ALL_CATEGORIES)
+
+        # Also parse user message for specific categories they mention
         if data.additional_instructions:
             msg_lower = data.additional_instructions.lower()
-            extra_cats = {
+            keyword_map = {
                 'lip': 'lip_balm', 'lipbalm': 'lip_balm', 'lip balm': 'lip_balm',
-                'sunscreen': 'sunscreen', 'spf': 'sunscreen', 'sun': 'sunscreen',
-                'cleanser': 'cleanser', 'face wash': 'cleanser',
+                'sunscreen': 'sunscreen', 'spf': 'sunscreen', 'sun protect': 'sunscreen',
+                'cleanser': 'cleanser', 'face wash': 'cleanser', 'micellar': 'cleanser',
                 'serum': 'serum', 'vitamin c': 'serum', 'niacinamide': 'serum',
-                'moisturizer': 'moisturizer', 'cream': 'moisturizer',
-                'retinol': 'treatment', 'retinoid': 'treatment',
-                'exfoliat': 'exfoliant', 'aha': 'exfoliant', 'bha': 'exfoliant',
+                'moisturizer': 'moisturizer', 'cream': 'moisturizer', 'hydrat': 'moisturizer',
+                'retinol': 'treatment', 'retinoid': 'treatment', 'tretinoin': 'treatment',
+                'exfoliat': 'exfoliant', 'aha': 'exfoliant', 'bha': 'exfoliant', 'peel': 'exfoliant',
                 'toner': 'toner', 'eye': 'eye_cream', 'mask': 'sleeping_mask',
+                'oil': 'face_oil', 'essence': 'essence', 'mist': 'toner',
             }
-            for keyword, cat in extra_cats.items():
+            for keyword, cat in keyword_map.items():
                 if keyword in msg_lower and cat not in categories_to_search:
                     categories_to_search.append(cat)
 
@@ -254,8 +286,8 @@ async def generate_routine(
             "{user_context}": user_context,
             "{routine_type}": routine_type,
             "{type_description}": type_info.get("description", ""),
-            "{template_steps}": ", ".join(template),
-            "{max_steps}": str(type_info.get("max_steps", 7)),
+            "{template_steps}": ", ".join(template) if template else "YOU DECIDE — analyze gaps and recommend only what's needed",
+            "{max_steps}": str(type_info.get("max_steps", 12 if is_auto else 7)),
             "{top_goal}": top_goal,
             "{concerns}": concerns,
             "{additional_instructions}": data.additional_instructions or "None",
