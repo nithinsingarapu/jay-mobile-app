@@ -1,21 +1,20 @@
 /**
- * AddStepSheet — bottom sheet for adding a step to a routine.
- * Collects category, product (search or custom), frequency, wait time, and notes.
+ * AddStepSheet — Smart step builder with ambient JAY assistance.
+ *
+ * Flow:
+ * 1. User picks category → products load + JAY auto-picks best product
+ * 2. JAY's pick is highlighted with ✨ badge, all fields auto-filled
+ * 3. User can pick a different product → all fields auto-update for that product
+ * 4. All fields are editable — JAY's suggestions are defaults, not locks
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  ActivityIndicator,
+  View, Text, Pressable, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import BottomSheet, {
-  BottomSheetScrollView,
-  BottomSheetTextInput,
-  BottomSheetBackdrop,
+  BottomSheetScrollView, BottomSheetTextInput, BottomSheetBackdrop,
 } from '@gorhom/bottom-sheet';
-import { Ionicons } from '@expo/vector-icons';
+import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '../../../lib/theme';
 import { SPACE, RADIUS } from '../../../constants/theme';
 import { routineService } from '../../../services/routine';
@@ -24,17 +23,9 @@ import type { SearchProduct } from '../../../types/routine';
 // ── Constants ───────────────────────────────────────────────────────────
 
 const CATEGORIES = [
-  'cleanser',
-  'toner',
-  'serum',
-  'moisturizer',
-  'sunscreen',
-  'treatment',
-  'eye_cream',
-  'face_oil',
-  'exfoliant',
-  'mask',
-  'essence',
+  'cleanser', 'toner', 'serum', 'moisturizer', 'sunscreen',
+  'treatment', 'eye_cream', 'face_oil', 'exfoliant', 'mask',
+  'essence', 'lip_balm', 'spot_treatment',
 ] as const;
 
 const FREQUENCIES = [
@@ -47,156 +38,138 @@ const FREQUENCIES = [
 ] as const;
 
 type Category = (typeof CATEGORIES)[number];
-type Frequency = (typeof FREQUENCIES)[number]['value'];
 
-// ── Types ───────────────────────────────────────────────────────────────
+function fmtCat(cat: string) {
+  return cat.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// ── Props ───────────────────────────────────────────────────────────────
 
 interface AddStepSheetProps {
   sheetRef: React.RefObject<BottomSheet | null>;
   routineId: string;
+  routineContext?: string; // e.g. "Post Workout afternoon routine"
   onAdded: () => void;
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────
-
-function formatCategory(cat: string): string {
-  return cat
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-// ── Component ───────────────────────────────────────────────────────────
-
-export function AddStepSheet({ sheetRef, routineId, onAdded }: AddStepSheetProps) {
+// ═══════════════════════════════════════════════════════════════════════
+export function AddStepSheet({ sheetRef, routineId, routineContext, onAdded }: AddStepSheetProps) {
   const { colors } = useTheme();
-  const snapPoints = useMemo(() => ['90%'], []);
+  const snapPoints = useMemo(() => ['92%'], []);
 
-  // State
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<SearchProduct | null>(null);
-  const [customProductName, setCustomProductName] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [frequency, setFrequency] = useState<Frequency>('daily');
-  const [waitTime, setWaitTime] = useState('');
-  const [notes, setNotes] = useState('');
+  // ── State ────────────────────────────────────────────────────────────
+  const [category, setCategory] = useState<Category | null>(null);
   const [products, setProducts] = useState<SearchProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [instruction, setInstruction] = useState('');
-  const [jayPickingProduct, setJayPickingProduct] = useState(false);
-  const [jayPickingInstruction, setJayPickingInstruction] = useState(false);
-  const [jayReasoning, setJayReasoning] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Fetch products when category changes
+  // Selected product (user's choice or JAY's pick)
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+  const [customProductName, setCustomProductName] = useState('');
+
+  // JAY's recommendation
+  const [jayPickId, setJayPickId] = useState<number | null>(null);
+  const [jayReasoning, setJayReasoning] = useState('');
+  const [jayLoading, setJayLoading] = useState(false);
+
+  // Auto-filled fields (updated when product changes)
+  const [instruction, setInstruction] = useState('');
+  const [waitTime, setWaitTime] = useState('');
+  const [frequency, setFrequency] = useState('daily');
+  const [notes, setNotes] = useState('');
+
+  const [submitting, setSubmitting] = useState(false);
+
+  // ── Category change → fetch products + JAY pick (parallel) ─────────
   useEffect(() => {
-    if (!selectedCategory) {
+    if (!category) {
       setProducts([]);
+      setJayPickId(null);
+      setJayReasoning('');
       return;
     }
+
     let cancelled = false;
     setProductsLoading(true);
-    setSelectedProduct(null);
+    setSelectedProductId(null);
     setCustomProductName('');
     setSearchQuery('');
+    setJayPickId(null);
+    setJayReasoning('');
+    setInstruction('');
+    setWaitTime('');
+    setFrequency('daily');
+    setNotes('');
 
-    routineService
-      .searchProducts(selectedCategory)
-      .then((res) => {
-        if (!cancelled) setProducts(res);
-      })
-      .catch(() => {
-        if (!cancelled) setProducts([]);
-      })
-      .finally(() => {
-        if (!cancelled) setProductsLoading(false);
-      });
+    // Fetch products
+    const fetchProducts = routineService.searchProducts(category)
+      .then(res => { if (!cancelled) setProducts(res); })
+      .catch(() => { if (!cancelled) setProducts([]); })
+      .finally(() => { if (!cancelled) setProductsLoading(false); });
 
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedCategory]);
+    // JAY picks best product (parallel)
+    setJayLoading(true);
+    const jayPick = routineService.assistPickProduct({
+      category,
+      routine_context: routineContext || `Adding ${fmtCat(category)} step`,
+    }).then(res => {
+      if (cancelled) return;
+      if (res.product_id) {
+        setJayPickId(res.product_id);
+        setSelectedProductId(res.product_id);
+        setJayReasoning(res.reasoning || '');
+      }
+    }).catch(() => {}).finally(() => { if (!cancelled) setJayLoading(false); });
 
-  // Filtered products based on search query
+    Promise.all([fetchProducts, jayPick]);
+
+    return () => { cancelled = true; };
+  }, [category]);
+
+  // ── When selected product changes → auto-fill instruction + wait ───
+  useEffect(() => {
+    if (!category) return;
+    const product = products.find(p => p.id === selectedProductId);
+    const productName = product?.name || customProductName || fmtCat(category);
+
+    if (!productName || productName === fmtCat(category)) return;
+
+    let cancelled = false;
+    routineService.assistSuggestInstruction({
+      category,
+      product_name: productName,
+      session: 'morning',
+    }).then(res => {
+      if (cancelled) return;
+      if (res.instruction) setInstruction(res.instruction);
+      if (res.wait_time_seconds != null) setWaitTime(String(res.wait_time_seconds));
+    }).catch(() => {});
+
+    return () => { cancelled = true; };
+  }, [selectedProductId, category]);
+
+  // ── Filtered products ──────────────────────────────────────────────
   const filteredProducts = useMemo(() => {
     if (!searchQuery.trim()) return products;
     const q = searchQuery.toLowerCase();
-    return products.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.brand.toLowerCase().includes(q),
+    return products.filter(p =>
+      p.name.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q)
     );
   }, [products, searchQuery]);
 
-  // JAY picks the best product for this category
-  const handleJayPickProduct = useCallback(async () => {
-    if (!selectedCategory || jayPickingProduct) return;
-    setJayPickingProduct(true);
-    setJayReasoning('');
-    try {
-      const result = await routineService.assistPickProduct({
-        category: selectedCategory,
-        routine_context: `Adding ${formatCategory(selectedCategory)} step to routine`,
-      });
-      if (result.product_id) {
-        // Find product in the loaded list
-        const found = products.find(p => p.id === result.product_id);
-        if (found) {
-          setSelectedProduct(found);
-          setCustomProductName('');
-        } else {
-          setCustomProductName(result.product_name || '');
-          setSelectedProduct(null);
-        }
-      } else if (result.product_name) {
-        setCustomProductName(result.product_name);
-        setSelectedProduct(null);
-      }
-      setJayReasoning(result.reasoning || '');
-
-      // Also auto-fill instruction
-      setJayPickingInstruction(true);
-      try {
-        const instrResult = await routineService.assistSuggestInstruction({
-          category: selectedCategory,
-          product_name: result.product_name || formatCategory(selectedCategory),
-          session: 'morning',
-        });
-        if (instrResult.instruction) setInstruction(instrResult.instruction);
-        if (instrResult.wait_time_seconds) setWaitTime(String(instrResult.wait_time_seconds));
-      } catch {}
-      setJayPickingInstruction(false);
-    } catch (e) {
-      console.warn('[JAY Assist] Pick product failed:', e);
-    }
-    setJayPickingProduct(false);
-  }, [selectedCategory, products, jayPickingProduct]);
-
-  // JAY writes instruction for current step
-  const handleJaySuggestInstruction = useCallback(async () => {
-    if (!selectedCategory || jayPickingInstruction) return;
-    setJayPickingInstruction(true);
-    try {
-      const productName = selectedProduct?.name || customProductName || formatCategory(selectedCategory);
-      const result = await routineService.assistSuggestInstruction({
-        category: selectedCategory,
-        product_name: productName,
-        session: 'morning',
-      });
-      if (result.instruction) setInstruction(result.instruction);
-      if (result.wait_time_seconds) setWaitTime(String(result.wait_time_seconds));
-    } catch (e) {
-      console.warn('[JAY Assist] Suggest instruction failed:', e);
-    }
-    setJayPickingInstruction(false);
-  }, [selectedCategory, selectedProduct, customProductName, jayPickingInstruction]);
+  // ── Handlers ───────────────────────────────────────────────────────
+  const selectProduct = useCallback((productId: number) => {
+    setSelectedProductId(prev => prev === productId ? null : productId);
+    setCustomProductName('');
+  }, []);
 
   const handleAdd = useCallback(async () => {
-    if (!selectedCategory || submitting) return;
+    if (!category || submitting) return;
     setSubmitting(true);
     try {
       await routineService.addStep(routineId, {
-        category: selectedCategory,
-        product_id: selectedProduct?.id,
+        category,
+        product_id: selectedProductId || undefined,
         custom_product_name: customProductName.trim() || undefined,
         instruction: instruction.trim() || undefined,
         frequency,
@@ -204,36 +177,31 @@ export function AddStepSheet({ sheetRef, routineId, onAdded }: AddStepSheetProps
         notes: notes.trim() || undefined,
       });
       onAdded();
-      // Reset form
-      setSelectedCategory(null);
-      setSelectedProduct(null);
+      // Reset
+      setCategory(null);
+      setSelectedProductId(null);
       setCustomProductName('');
       setSearchQuery('');
-      setFrequency('daily');
-      setWaitTime('');
-      setNotes('');
       setInstruction('');
+      setWaitTime('');
+      setFrequency('daily');
+      setNotes('');
+      setJayPickId(null);
       setJayReasoning('');
-    } catch {
-      // Parent can handle errors via store / toast
-    } finally {
+    } catch {} finally {
       setSubmitting(false);
     }
-  }, [selectedCategory, selectedProduct, customProductName, frequency, waitTime, notes, routineId, submitting, onAdded]);
+  }, [category, selectedProductId, customProductName, instruction, frequency, waitTime, notes, routineId, submitting, onAdded]);
 
-  // Backdrop
   const renderBackdrop = useCallback(
     (props: any) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.4}
-        pressBehavior="close"
-      />
-    ),
-    [],
+      <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.4} pressBehavior="close" />
+    ), [],
   );
+
+  // ═══════════════════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════════════════
 
   return (
     <BottomSheet
@@ -242,403 +210,248 @@ export function AddStepSheet({ sheetRef, routineId, onAdded }: AddStepSheetProps
       snapPoints={snapPoints}
       enablePanDownToClose
       backdropComponent={renderBackdrop}
-      handleIndicatorStyle={[s.handle, { backgroundColor: colors.systemGray4 }]}
+      handleIndicatorStyle={[$.handle, { backgroundColor: colors.systemGray4 }]}
       backgroundStyle={{ backgroundColor: colors.secondarySystemBackground }}
     >
-      <BottomSheetScrollView
-        contentContainerStyle={s.content}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Title */}
-        <Text style={[s.title, { color: colors.label }]}>Add Step</Text>
+      <BottomSheetScrollView contentContainerStyle={$.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-        {/* ── Category ──────────────────────────────────────────────── */}
-        <Text style={[s.sectionHeader, { color: colors.secondaryLabel }]}>CATEGORY</Text>
-        <View style={[s.groupedTable, { backgroundColor: colors.tertiarySystemBackground }]}>
-          {CATEGORIES.map((cat, idx) => (
-            <Pressable
-              key={cat}
-              style={[
-                s.groupedRow,
-                idx < CATEGORIES.length - 1 && {
-                  borderBottomWidth: StyleSheet.hairlineWidth,
-                  borderBottomColor: colors.separator,
-                },
-                selectedCategory === cat && { backgroundColor: colors.systemBlue + '14' },
-              ]}
-              onPress={() => setSelectedCategory(cat)}
-            >
-              <Text
+        <Text style={[$.title, { color: colors.label }]}>Add Step</Text>
+
+        {/* ── Category ───────────────────────────────────────────── */}
+        <Text style={[$.label, { color: colors.secondaryLabel }]}>STEP TYPE</Text>
+        <View style={[$.table, { backgroundColor: colors.tertiarySystemFill }]}>
+          {CATEGORIES.map((cat, i) => {
+            const active = category === cat;
+            return (
+              <Pressable
+                key={cat}
+                onPress={() => setCategory(cat)}
                 style={[
-                  s.rowLabel,
-                  { color: colors.label },
-                  selectedCategory === cat && { color: colors.systemBlue },
+                  $.row,
+                  i < CATEGORIES.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.separator },
+                  active && { backgroundColor: colors.systemBlue + '08' },
                 ]}
               >
-                {formatCategory(cat)}
-              </Text>
-              {selectedCategory === cat && (
-                <Ionicons name="checkmark" size={20} color={colors.systemBlue} />
-              )}
-            </Pressable>
-          ))}
-        </View>
-
-        {/* ── Product ───────────────────────────────────────────────── */}
-        {selectedCategory && (
-          <>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: SPACE.lg }}>
-              <Text style={[s.sectionHeader, { color: colors.secondaryLabel, marginBottom: 0 }]}>PRODUCT</Text>
-              <Pressable
-                onPress={handleJayPickProduct}
-                disabled={jayPickingProduct}
-                style={[s.jayBtn, { backgroundColor: colors.systemBlue + '12' }]}
-              >
-                {jayPickingProduct ? (
-                  <ActivityIndicator size="small" color={colors.systemBlue} />
-                ) : (
-                  <Text style={[s.jayBtnText, { color: colors.systemBlue }]}>🤖 Let JAY pick</Text>
+                <Text style={[$.rowText, { color: active ? colors.systemBlue : colors.label }]}>
+                  {fmtCat(cat)}
+                </Text>
+                {active && (
+                  <Svg width={18} height={18} viewBox="0 0 20 20">
+                    <Path d="M4 10.5L8 14.5L16 5.5" stroke={colors.systemBlue} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                  </Svg>
                 )}
               </Pressable>
-            </View>
+            );
+          })}
+        </View>
 
+        {/* ── Product (shown after category selected) ─────────── */}
+        {category && (
+          <>
+            <Text style={[$.label, { color: colors.secondaryLabel }]}>
+              PRODUCT {jayLoading ? '· JAY is picking...' : jayPickId ? '· ✨ JAY\'s pick highlighted' : ''}
+            </Text>
+
+            {/* JAY's reasoning */}
             {jayReasoning ? (
-              <View style={[s.jayReasonBox, { backgroundColor: colors.systemBlue + '08', borderColor: colors.systemBlue + '20' }]}>
-                <Text style={[s.jayReasonText, { color: colors.secondaryLabel }]}>
-                  💡 {jayReasoning}
-                </Text>
+              <View style={[$.reasonBox, { backgroundColor: colors.systemBlue + '06', borderColor: colors.systemBlue + '15' }]}>
+                <Text style={[$.reasonText, { color: colors.secondaryLabel }]}>🤖 {jayReasoning}</Text>
               </View>
             ) : null}
 
+            {/* Search */}
             <BottomSheetTextInput
-              style={[
-                s.input,
-                {
-                  backgroundColor: colors.tertiarySystemBackground,
-                  color: colors.label,
-                },
-              ]}
+              style={[$.input, { backgroundColor: colors.tertiarySystemFill, color: colors.label }]}
               placeholder="Search products..."
               placeholderTextColor={colors.placeholderText}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
 
+            {/* Product list */}
             {productsLoading ? (
-              <ActivityIndicator
-                style={s.loader}
-                color={colors.systemBlue}
-              />
+              <ActivityIndicator style={{ marginVertical: 20 }} color={colors.systemBlue} />
             ) : (
-              <View style={[s.groupedTable, { backgroundColor: colors.tertiarySystemBackground }]}>
-                {filteredProducts.map((product, idx) => {
-                  const isSelected = selectedProduct?.id === product.id;
+              <View style={[$.table, { backgroundColor: colors.tertiarySystemFill }]}>
+                {filteredProducts.map((p, i) => {
+                  const isSelected = selectedProductId === p.id;
+                  const isJayPick = jayPickId === p.id;
                   return (
                     <Pressable
-                      key={product.id}
+                      key={p.id}
+                      onPress={() => selectProduct(p.id)}
                       style={[
-                        s.groupedRow,
-                        s.productRow,
-                        idx < filteredProducts.length - 1 && {
-                          borderBottomWidth: StyleSheet.hairlineWidth,
-                          borderBottomColor: colors.separator,
-                        },
-                        isSelected && { backgroundColor: colors.systemBlue + '14' },
+                        $.row, $.productRow,
+                        i < filteredProducts.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.separator },
+                        isSelected && { backgroundColor: colors.systemBlue + '08' },
                       ]}
-                      onPress={() => {
-                        setSelectedProduct(isSelected ? null : product);
-                        setCustomProductName('');
-                      }}
                     >
-                      <View style={s.productInfo}>
-                        <Text style={[s.productBrand, { color: colors.secondaryLabel }]}>
-                          {product.brand}
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={[$.productBrand, { color: colors.secondaryLabel }]}>{p.brand}</Text>
+                          {isJayPick && (
+                            <View style={[$.jayBadge, { backgroundColor: colors.systemBlue + '15' }]}>
+                              <Text style={[$.jayBadgeText, { color: colors.systemBlue }]}>✨ JAY's pick</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text numberOfLines={1} style={[$.productName, { color: isSelected ? colors.systemBlue : colors.label }]}>
+                          {p.name}
                         </Text>
-                        <Text
-                          style={[
-                            s.productName,
-                            { color: colors.label },
-                            isSelected && { color: colors.systemBlue },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {product.name}
-                        </Text>
-                        <Text style={[s.productPrice, { color: colors.secondaryLabel }]}>
-                          {'\u20B9'}{product.price_inr}
+                        <Text style={[$.productPrice, { color: colors.tertiaryLabel }]}>
+                          {p.price_inr ? `₹${p.price_inr}` : 'Price TBD'}
+                          {p.rating ? ` · ★${p.rating}` : ''}
                         </Text>
                       </View>
                       {isSelected && (
-                        <Ionicons name="checkmark" size={20} color={colors.systemBlue} />
+                        <Svg width={18} height={18} viewBox="0 0 20 20">
+                          <Path d="M4 10.5L8 14.5L16 5.5" stroke={colors.systemBlue} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                        </Svg>
                       )}
                     </Pressable>
                   );
                 })}
+                {filteredProducts.length === 0 && !productsLoading && (
+                  <Text style={[$.emptyText, { color: colors.tertiaryLabel }]}>No products found</Text>
+                )}
               </View>
             )}
 
-            {/* Custom product fallback */}
+            {/* Custom product */}
             <BottomSheetTextInput
-              style={[
-                s.input,
-                {
-                  backgroundColor: colors.tertiarySystemBackground,
-                  color: colors.label,
-                  marginTop: SPACE.md,
-                },
-              ]}
-              placeholder="or add custom product name"
+              style={[$.input, { backgroundColor: colors.tertiarySystemFill, color: colors.label, marginTop: SPACE.sm }]}
+              placeholder="or enter custom product name"
               placeholderTextColor={colors.placeholderText}
               value={customProductName}
-              onChangeText={(text) => {
-                setCustomProductName(text);
-                if (text.trim()) setSelectedProduct(null);
-              }}
+              onChangeText={t => { setCustomProductName(t); if (t.trim()) setSelectedProductId(null); }}
             />
           </>
         )}
 
-        {/* ── Frequency ─────────────────────────────────────────────── */}
-        <Text style={[s.sectionHeader, { color: colors.secondaryLabel }]}>FREQUENCY</Text>
-        <View style={[s.groupedTable, { backgroundColor: colors.tertiarySystemBackground }]}>
-          {FREQUENCIES.map((opt, idx) => (
-            <Pressable
-              key={opt.value}
-              style={[
-                s.groupedRow,
-                idx < FREQUENCIES.length - 1 && {
-                  borderBottomWidth: StyleSheet.hairlineWidth,
-                  borderBottomColor: colors.separator,
-                },
-                frequency === opt.value && { backgroundColor: colors.systemBlue + '14' },
-              ]}
-              onPress={() => setFrequency(opt.value)}
-            >
-              <Text
-                style={[
-                  s.rowLabel,
-                  { color: colors.label },
-                  frequency === opt.value && { color: colors.systemBlue },
-                ]}
-              >
-                {opt.label}
-              </Text>
-              {frequency === opt.value && (
-                <Ionicons name="checkmark" size={20} color={colors.systemBlue} />
-              )}
-            </Pressable>
-          ))}
-        </View>
+        {/* ── How to Apply (auto-filled by JAY) ──────────────── */}
+        {category && (
+          <>
+            <Text style={[$.label, { color: colors.secondaryLabel }]}>HOW TO APPLY</Text>
+            <BottomSheetTextInput
+              style={[$.input, $.textArea, { backgroundColor: colors.tertiarySystemFill, color: colors.label }]}
+              placeholder="JAY will auto-fill this when you pick a product..."
+              placeholderTextColor={colors.placeholderText}
+              value={instruction}
+              onChangeText={setInstruction}
+              multiline
+              textAlignVertical="top"
+            />
+          </>
+        )}
 
-        {/* ── Wait time ─────────────────────────────────────────────── */}
-        <Text style={[s.sectionHeader, { color: colors.secondaryLabel }]}>WAIT TIME</Text>
-        <BottomSheetTextInput
-          style={[
-            s.input,
-            {
-              backgroundColor: colors.tertiarySystemBackground,
-              color: colors.label,
-            },
-          ]}
-          placeholder="Seconds (optional)"
-          placeholderTextColor={colors.placeholderText}
-          value={waitTime}
-          onChangeText={setWaitTime}
-          keyboardType="numeric"
-        />
+        {/* ── Frequency ──────────────────────────────────────── */}
+        {category && (
+          <>
+            <Text style={[$.label, { color: colors.secondaryLabel }]}>FREQUENCY</Text>
+            <View style={[$.chipRow]}>
+              {FREQUENCIES.map(f => {
+                const active = frequency === f.value;
+                return (
+                  <Pressable
+                    key={f.value}
+                    onPress={() => setFrequency(f.value)}
+                    style={[$.chip, { backgroundColor: active ? colors.systemBlue : colors.tertiarySystemFill }]}
+                  >
+                    <Text style={[$.chipText, { color: active ? '#FFF' : colors.label }]}>{f.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        )}
 
-        {/* ── Instruction ────────────────────────────────────────────── */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: SPACE.lg }}>
-          <Text style={[s.sectionHeader, { color: colors.secondaryLabel, marginBottom: 0 }]}>HOW TO APPLY</Text>
-          {selectedCategory && (
-            <Pressable
-              onPress={handleJaySuggestInstruction}
-              disabled={jayPickingInstruction}
-              style={[s.jayBtn, { backgroundColor: colors.systemIndigo + '12' }]}
-            >
-              {jayPickingInstruction ? (
-                <ActivityIndicator size="small" color={colors.systemIndigo} />
-              ) : (
-                <Text style={[s.jayBtnText, { color: colors.systemIndigo }]}>🤖 JAY writes</Text>
-              )}
-            </Pressable>
-          )}
-        </View>
-        <BottomSheetTextInput
-          style={[
-            s.input,
-            s.textArea,
-            {
-              backgroundColor: colors.tertiarySystemBackground,
-              color: colors.label,
-            },
-          ]}
-          placeholder="e.g. Massage onto damp skin for 60 seconds..."
-          placeholderTextColor={colors.placeholderText}
-          value={instruction}
-          onChangeText={setInstruction}
-          multiline
-          textAlignVertical="top"
-        />
+        {/* ── Wait Time ──────────────────────────────────────── */}
+        {category && (
+          <>
+            <Text style={[$.label, { color: colors.secondaryLabel }]}>WAIT TIME (SECONDS)</Text>
+            <BottomSheetTextInput
+              style={[$.input, { backgroundColor: colors.tertiarySystemFill, color: colors.label }]}
+              placeholder="0"
+              placeholderTextColor={colors.placeholderText}
+              value={waitTime}
+              onChangeText={setWaitTime}
+              keyboardType="numeric"
+            />
+          </>
+        )}
 
-        {/* ── Notes ─────────────────────────────────────────────────── */}
-        <Text style={[s.sectionHeader, { color: colors.secondaryLabel }]}>NOTES</Text>
-        <BottomSheetTextInput
-          style={[
-            s.input,
-            s.textArea,
-            {
-              backgroundColor: colors.tertiarySystemBackground,
-              color: colors.label,
-            },
-          ]}
-          placeholder="Optional notes..."
-          placeholderTextColor={colors.placeholderText}
-          value={notes}
-          onChangeText={setNotes}
-          multiline
-          textAlignVertical="top"
-        />
+        {/* ── Notes ───────────────────────────────────────────── */}
+        {category && (
+          <>
+            <Text style={[$.label, { color: colors.secondaryLabel }]}>NOTES (OPTIONAL)</Text>
+            <BottomSheetTextInput
+              style={[$.input, $.textArea, { backgroundColor: colors.tertiarySystemFill, color: colors.label }]}
+              placeholder="Any notes for yourself..."
+              placeholderTextColor={colors.placeholderText}
+              value={notes}
+              onChangeText={setNotes}
+              multiline
+              textAlignVertical="top"
+            />
+          </>
+        )}
 
-        {/* ── Add button ────────────────────────────────────────────── */}
+        {/* ── Add Button ─────────────────────────────────────── */}
         <Pressable
-          style={[
-            s.addBtn,
-            { backgroundColor: colors.systemBlue },
-            (!selectedCategory || submitting) && { opacity: 0.5 },
-          ]}
+          style={[$.addBtn, { backgroundColor: colors.systemBlue }, (!category || submitting) && { opacity: 0.4 }]}
           onPress={handleAdd}
-          disabled={!selectedCategory || submitting}
+          disabled={!category || submitting}
         >
           {submitting ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color="#FFF" />
           ) : (
-            <Text style={s.addBtnText}>Add to Routine</Text>
+            <Text style={$.addBtnText}>Add to Routine</Text>
           )}
         </Pressable>
+
+        <View style={{ height: 30 }} />
       </BottomSheetScrollView>
     </BottomSheet>
   );
 }
 
-// ── Styles ──────────────────────────────────────────────────────────────
-
-const s = StyleSheet.create({
-  handle: {
-    width: 36,
-    height: 5,
-    borderRadius: 2.5,
+// ═══════════════════════════════════════════════════════════════════════
+const $ = StyleSheet.create({
+  handle: { width: 36, height: 5, borderRadius: 2.5 },
+  content: { paddingHorizontal: SPACE.xl, paddingBottom: 40 },
+  title: { fontSize: 22, fontFamily: 'Outfit-Bold', marginBottom: SPACE.lg, marginTop: SPACE.sm },
+  label: {
+    fontSize: 11, fontFamily: 'Outfit-SemiBold', letterSpacing: 0.5,
+    textTransform: 'uppercase', marginTop: SPACE.lg, marginBottom: SPACE.sm,
   },
-  content: {
-    paddingHorizontal: SPACE.xl,
-    paddingBottom: 40,
+  table: { borderRadius: RADIUS.sm, overflow: 'hidden' },
+  row: {
+    flexDirection: 'row', alignItems: 'center', minHeight: 44,
+    paddingHorizontal: SPACE.lg, paddingVertical: SPACE.md,
   },
-  title: {
-    fontSize: 22,
-    fontFamily: 'Outfit-Bold',
-    fontWeight: '700',
-    marginBottom: SPACE.lg,
-    marginTop: SPACE.sm,
-  },
-  sectionHeader: {
-    fontSize: 11,
-    fontFamily: 'Outfit',
-    fontWeight: '400',
-    letterSpacing: 0.07,
-    textTransform: 'uppercase',
-    marginTop: SPACE.lg,
-    marginBottom: SPACE.sm,
-    paddingLeft: SPACE.lg,
-  },
-  groupedTable: {
-    borderRadius: RADIUS.sm,
-    overflow: 'hidden',
-  },
-  groupedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 44,
-    paddingHorizontal: SPACE.lg,
-    paddingVertical: SPACE.md,
-  },
-  rowLabel: {
-    flex: 1,
-    fontSize: 15,
-    fontFamily: 'Outfit',
-  },
+  rowText: { flex: 1, fontSize: 15, fontFamily: 'Outfit' },
   input: {
-    height: 44,
-    borderRadius: RADIUS.sm,
-    paddingHorizontal: SPACE.md,
-    fontSize: 15,
-    fontFamily: 'Outfit',
-    marginBottom: SPACE.md,
+    height: 44, borderRadius: RADIUS.sm, paddingHorizontal: SPACE.md,
+    fontSize: 15, fontFamily: 'Outfit', marginBottom: SPACE.sm,
   },
-  textArea: {
-    minHeight: 80,
-    paddingTop: SPACE.md,
-    textAlignVertical: 'top',
+  textArea: { minHeight: 70, paddingTop: SPACE.md, textAlignVertical: 'top' },
+  productRow: { paddingVertical: 10 },
+  productBrand: { fontSize: 11, fontFamily: 'Outfit' },
+  productName: { fontSize: 15, fontFamily: 'Outfit-Medium', marginTop: 1 },
+  productPrice: { fontSize: 12, fontFamily: 'Outfit', marginTop: 2 },
+  jayBadge: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 },
+  jayBadgeText: { fontSize: 9, fontFamily: 'Outfit-SemiBold' },
+  reasonBox: {
+    paddingHorizontal: SPACE.md, paddingVertical: SPACE.sm,
+    borderRadius: 8, borderWidth: 1, marginBottom: SPACE.sm,
   },
-  loader: {
-    marginVertical: SPACE.lg,
-  },
-  productRow: {
-    paddingVertical: SPACE.md,
-  },
-  productInfo: {
-    flex: 1,
-  },
-  productBrand: {
-    fontSize: 12,
-    fontFamily: 'Outfit',
-  },
-  productName: {
-    fontSize: 15,
-    fontFamily: 'Outfit',
-    marginTop: 2,
-  },
-  productPrice: {
-    fontSize: 13,
-    fontFamily: 'Outfit',
-    marginTop: 2,
-  },
+  reasonText: { fontSize: 12, fontFamily: 'Outfit', lineHeight: 17 },
+  emptyText: { padding: 16, textAlign: 'center', fontSize: 13, fontFamily: 'Outfit' },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: SPACE.sm },
+  chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20 },
+  chipText: { fontSize: 13, fontFamily: 'Outfit-Medium' },
   addBtn: {
-    height: 50,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: SPACE.xxl,
+    height: 50, borderRadius: RADIUS.md, alignItems: 'center', justifyContent: 'center', marginTop: SPACE.xxl,
   },
-  addBtnText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontFamily: 'Outfit-SemiBold',
-    fontWeight: '600',
-  },
-  jayBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    minWidth: 90,
-    justifyContent: 'center',
-  },
-  jayBtnText: {
-    fontSize: 12,
-    fontFamily: 'Outfit-SemiBold',
-  },
-  jayReasonBox: {
-    marginHorizontal: 0,
-    marginBottom: SPACE.sm,
-    paddingHorizontal: SPACE.md,
-    paddingVertical: SPACE.sm,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  jayReasonText: {
-    fontSize: 12,
-    fontFamily: 'Outfit',
-    lineHeight: 17,
-  },
+  addBtnText: { color: '#FFF', fontSize: 17, fontFamily: 'Outfit-SemiBold' },
 });
