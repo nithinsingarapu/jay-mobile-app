@@ -4,7 +4,6 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import Ingredient, Article, Concern, Myth, Tip
-from . import pipeline
 
 STALE_DAYS = 30
 
@@ -35,6 +34,7 @@ async def get_ingredient_by_slug(db: AsyncSession, slug: str) -> Ingredient | No
     if ingredient and not _is_stale(ingredient.fetched_at):
         return ingredient
     name = slug.replace("-", " ").title()
+    from . import pipeline
     fetched = await pipeline.fetch_ingredient(name, db)
     return fetched or ingredient
 
@@ -75,6 +75,7 @@ async def get_concern_by_slug(db: AsyncSession, slug: str) -> Concern | None:
     if concern and not _is_stale(concern.fetched_at):
         return concern
     name = slug.replace("-", " ").title()
+    from . import pipeline
     fetched = await pipeline.fetch_concern(name, db)
     return fetched or concern
 

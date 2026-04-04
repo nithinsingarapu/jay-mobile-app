@@ -13,7 +13,7 @@ import { EnvironmentBar } from '../../components/home/EnvironmentBar';
 import { useUserStore } from '../../stores/userStore';
 import { useRoutineStore } from '../../stores/routineStore';
 import { useTheme } from '../../lib/theme';
-import { mockDiscoverArticles, mockCapSlapVerdicts } from '../../constants/mockData';
+import { mockCapSlapVerdicts } from '../../constants/mockData';
 import { TYPE, SPACE, RADIUS } from '../../constants/theme';
 
 export default function HomeScreen() {
@@ -119,7 +119,7 @@ export default function HomeScreen() {
       />
 
       {/* ── For You ────────────────────────────────────────── */}
-      <ForYouCarousel articles={mockDiscoverArticles} />
+      <ForYouCarousel />
 
       {/* ── Insight ────────────────────────────────────────── */}
       <InsightNudge text="Your skin responds well to niacinamide — 8 good days since adding it." />

@@ -10,8 +10,6 @@ import re
 import unicodedata
 from datetime import datetime, timezone
 
-from google import genai
-from google.genai.types import GenerateContentConfig
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
@@ -41,6 +39,7 @@ def slugify(text: str) -> str:
 
 
 def _gemini_client():
+    from google import genai
     return genai.Client(api_key=get_settings().gemini_api_key)
 
 
@@ -85,6 +84,7 @@ def _parse_json(text: str) -> dict | list | None:
 
 
 async def _ask_gemini(prompt: str, max_tokens: int = 8192) -> str:
+    from google.genai.types import GenerateContentConfig
     client = _gemini_client()
     config = GenerateContentConfig(temperature=0.2, max_output_tokens=max_tokens)
     try:
