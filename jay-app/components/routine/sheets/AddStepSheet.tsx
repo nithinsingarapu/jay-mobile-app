@@ -82,6 +82,10 @@ export function AddStepSheet({ sheetRef, routineId, onAdded }: AddStepSheetProps
   const [products, setProducts] = useState<SearchProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [instruction, setInstruction] = useState('');
+  const [jayPickingProduct, setJayPickingProduct] = useState(false);
+  const [jayPickingInstruction, setJayPickingInstruction] = useState(false);
+  const [jayReasoning, setJayReasoning] = useState('');
 
   // Fetch products when category changes
   useEffect(() => {
@@ -123,6 +127,69 @@ export function AddStepSheet({ sheetRef, routineId, onAdded }: AddStepSheetProps
     );
   }, [products, searchQuery]);
 
+  // JAY picks the best product for this category
+  const handleJayPickProduct = useCallback(async () => {
+    if (!selectedCategory || jayPickingProduct) return;
+    setJayPickingProduct(true);
+    setJayReasoning('');
+    try {
+      const result = await routineService.assistPickProduct({
+        category: selectedCategory,
+        routine_context: `Adding ${formatCategory(selectedCategory)} step to routine`,
+      });
+      if (result.product_id) {
+        // Find product in the loaded list
+        const found = products.find(p => p.id === result.product_id);
+        if (found) {
+          setSelectedProduct(found);
+          setCustomProductName('');
+        } else {
+          setCustomProductName(result.product_name || '');
+          setSelectedProduct(null);
+        }
+      } else if (result.product_name) {
+        setCustomProductName(result.product_name);
+        setSelectedProduct(null);
+      }
+      setJayReasoning(result.reasoning || '');
+
+      // Also auto-fill instruction
+      setJayPickingInstruction(true);
+      try {
+        const instrResult = await routineService.assistSuggestInstruction({
+          category: selectedCategory,
+          product_name: result.product_name || formatCategory(selectedCategory),
+          session: 'morning',
+        });
+        if (instrResult.instruction) setInstruction(instrResult.instruction);
+        if (instrResult.wait_time_seconds) setWaitTime(String(instrResult.wait_time_seconds));
+      } catch {}
+      setJayPickingInstruction(false);
+    } catch (e) {
+      console.warn('[JAY Assist] Pick product failed:', e);
+    }
+    setJayPickingProduct(false);
+  }, [selectedCategory, products, jayPickingProduct]);
+
+  // JAY writes instruction for current step
+  const handleJaySuggestInstruction = useCallback(async () => {
+    if (!selectedCategory || jayPickingInstruction) return;
+    setJayPickingInstruction(true);
+    try {
+      const productName = selectedProduct?.name || customProductName || formatCategory(selectedCategory);
+      const result = await routineService.assistSuggestInstruction({
+        category: selectedCategory,
+        product_name: productName,
+        session: 'morning',
+      });
+      if (result.instruction) setInstruction(result.instruction);
+      if (result.wait_time_seconds) setWaitTime(String(result.wait_time_seconds));
+    } catch (e) {
+      console.warn('[JAY Assist] Suggest instruction failed:', e);
+    }
+    setJayPickingInstruction(false);
+  }, [selectedCategory, selectedProduct, customProductName, jayPickingInstruction]);
+
   const handleAdd = useCallback(async () => {
     if (!selectedCategory || submitting) return;
     setSubmitting(true);
@@ -131,6 +198,7 @@ export function AddStepSheet({ sheetRef, routineId, onAdded }: AddStepSheetProps
         category: selectedCategory,
         product_id: selectedProduct?.id,
         custom_product_name: customProductName.trim() || undefined,
+        instruction: instruction.trim() || undefined,
         frequency,
         wait_time_seconds: waitTime ? parseInt(waitTime, 10) : undefined,
         notes: notes.trim() || undefined,
@@ -144,6 +212,8 @@ export function AddStepSheet({ sheetRef, routineId, onAdded }: AddStepSheetProps
       setFrequency('daily');
       setWaitTime('');
       setNotes('');
+      setInstruction('');
+      setJayReasoning('');
     } catch {
       // Parent can handle errors via store / toast
     } finally {
@@ -217,7 +287,28 @@ export function AddStepSheet({ sheetRef, routineId, onAdded }: AddStepSheetProps
         {/* ── Product ───────────────────────────────────────────────── */}
         {selectedCategory && (
           <>
-            <Text style={[s.sectionHeader, { color: colors.secondaryLabel }]}>PRODUCT</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: SPACE.lg }}>
+              <Text style={[s.sectionHeader, { color: colors.secondaryLabel, marginBottom: 0 }]}>PRODUCT</Text>
+              <Pressable
+                onPress={handleJayPickProduct}
+                disabled={jayPickingProduct}
+                style={[s.jayBtn, { backgroundColor: colors.systemBlue + '12' }]}
+              >
+                {jayPickingProduct ? (
+                  <ActivityIndicator size="small" color={colors.systemBlue} />
+                ) : (
+                  <Text style={[s.jayBtnText, { color: colors.systemBlue }]}>🤖 Let JAY pick</Text>
+                )}
+              </Pressable>
+            </View>
+
+            {jayReasoning ? (
+              <View style={[s.jayReasonBox, { backgroundColor: colors.systemBlue + '08', borderColor: colors.systemBlue + '20' }]}>
+                <Text style={[s.jayReasonText, { color: colors.secondaryLabel }]}>
+                  💡 {jayReasoning}
+                </Text>
+              </View>
+            ) : null}
 
             <BottomSheetTextInput
               style={[
@@ -356,6 +447,40 @@ export function AddStepSheet({ sheetRef, routineId, onAdded }: AddStepSheetProps
           keyboardType="numeric"
         />
 
+        {/* ── Instruction ────────────────────────────────────────────── */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: SPACE.lg }}>
+          <Text style={[s.sectionHeader, { color: colors.secondaryLabel, marginBottom: 0 }]}>HOW TO APPLY</Text>
+          {selectedCategory && (
+            <Pressable
+              onPress={handleJaySuggestInstruction}
+              disabled={jayPickingInstruction}
+              style={[s.jayBtn, { backgroundColor: colors.systemIndigo + '12' }]}
+            >
+              {jayPickingInstruction ? (
+                <ActivityIndicator size="small" color={colors.systemIndigo} />
+              ) : (
+                <Text style={[s.jayBtnText, { color: colors.systemIndigo }]}>🤖 JAY writes</Text>
+              )}
+            </Pressable>
+          )}
+        </View>
+        <BottomSheetTextInput
+          style={[
+            s.input,
+            s.textArea,
+            {
+              backgroundColor: colors.tertiarySystemBackground,
+              color: colors.label,
+            },
+          ]}
+          placeholder="e.g. Massage onto damp skin for 60 seconds..."
+          placeholderTextColor={colors.placeholderText}
+          value={instruction}
+          onChangeText={setInstruction}
+          multiline
+          textAlignVertical="top"
+        />
+
         {/* ── Notes ─────────────────────────────────────────────────── */}
         <Text style={[s.sectionHeader, { color: colors.secondaryLabel }]}>NOTES</Text>
         <BottomSheetTextInput
@@ -489,5 +614,31 @@ const s = StyleSheet.create({
     fontSize: 17,
     fontFamily: 'Outfit-SemiBold',
     fontWeight: '600',
+  },
+  jayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    minWidth: 90,
+    justifyContent: 'center',
+  },
+  jayBtnText: {
+    fontSize: 12,
+    fontFamily: 'Outfit-SemiBold',
+  },
+  jayReasonBox: {
+    marginHorizontal: 0,
+    marginBottom: SPACE.sm,
+    paddingHorizontal: SPACE.md,
+    paddingVertical: SPACE.sm,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  jayReasonText: {
+    fontSize: 12,
+    fontFamily: 'Outfit',
+    lineHeight: 17,
   },
 });
