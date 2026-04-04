@@ -54,11 +54,13 @@ function SessionTabs({
   selectedId,
   onSelect,
   colors,
+  todayStatuses,
 }: {
   routines: any[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   colors: any;
+  todayStatuses: Record<string, any>;
 }) {
   if (routines.length <= 1) return null;
 
@@ -70,6 +72,8 @@ function SessionTabs({
     >
       {routines.map((r) => {
         const active = r.id === selectedId;
+        const status = todayStatuses[r.id];
+        const isDone = status && status.total_steps > 0 && status.completed_steps >= status.total_steps;
         return (
           <Pressable
             key={r.id}
@@ -79,14 +83,18 @@ function SessionTabs({
               {
                 backgroundColor: active
                   ? colors.systemBlue
+                  : isDone
+                  ? colors.systemGreen + '15'
                   : colors.secondarySystemFill,
               },
+              isDone && !active && { borderWidth: 1, borderColor: colors.systemGreen + '30' },
             ]}
           >
+            {isDone && !active && <Text style={{ fontSize: 10, marginRight: 3 }}>✓</Text>}
             <Text
               style={[
                 styles.sessionPillText,
-                { color: active ? '#fff' : colors.label },
+                { color: active ? '#fff' : isDone ? colors.systemGreen : colors.label },
               ]}
             >
               {r.name}
@@ -136,9 +144,46 @@ export default function RoutineScreen() {
 
   /* ── Derived ──────────────────────────────────────────────── */
 
+  // Sort routines: incomplete first, completed last (queue behavior)
+  const sortedRoutines = useMemo(() => {
+    return [...routines].sort((a, b) => {
+      const aStatus = todayStatuses[a.id];
+      const bStatus = todayStatuses[b.id];
+      const aDone = aStatus && aStatus.total_steps > 0 && aStatus.completed_steps >= aStatus.total_steps;
+      const bDone = bStatus && bStatus.total_steps > 0 && bStatus.completed_steps >= bStatus.total_steps;
+      if (aDone && !bDone) return 1;  // a is done → goes to back
+      if (!aDone && bDone) return -1; // b is done → goes to back
+      return 0; // keep original order
+    });
+  }, [routines, todayStatuses]);
+
+  // Auto-select first INCOMPLETE routine (or first routine if all done)
+  useEffect(() => {
+    if (sortedRoutines.length === 0) return;
+    const currentStillValid = sortedRoutines.some(r => r.id === selectedRoutineId);
+    if (currentStillValid) {
+      // Check if current routine just completed → auto-advance
+      const currentStatus = todayStatuses[selectedRoutineId || ''];
+      const isDone = currentStatus && currentStatus.total_steps > 0 && currentStatus.completed_steps >= currentStatus.total_steps;
+      if (isDone) {
+        // Find next incomplete routine
+        const nextIncomplete = sortedRoutines.find(r => {
+          const s = todayStatuses[r.id];
+          return !s || s.total_steps === 0 || s.completed_steps < s.total_steps;
+        });
+        if (nextIncomplete && nextIncomplete.id !== selectedRoutineId) {
+          // Small delay so user sees the completion animation
+          setTimeout(() => setSelectedRoutineId(nextIncomplete.id), 1500);
+        }
+      }
+    } else {
+      setSelectedRoutineId(sortedRoutines[0].id);
+    }
+  }, [sortedRoutines, todayStatuses, selectedRoutineId]);
+
   const currentRoutine = useMemo(
-    () => routines.find((r) => r.id === selectedRoutineId) ?? routines[0] ?? null,
-    [routines, selectedRoutineId],
+    () => sortedRoutines.find((r) => r.id === selectedRoutineId) ?? sortedRoutines[0] ?? null,
+    [sortedRoutines, selectedRoutineId],
   );
 
   const todayStatus = useMemo(
@@ -252,10 +297,11 @@ export default function RoutineScreen() {
         }
       >
         <SessionTabs
-          routines={routines}
+          routines={sortedRoutines}
           selectedId={currentRoutine?.id ?? null}
           onSelect={setSelectedRoutineId}
           colors={colors}
+          todayStatuses={todayStatuses}
         />
 
         <HeroRing completed={completedSteps} total={totalSteps} />
