@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View, Image } from 'react-native';
 import { useTheme } from '../../lib/theme';
 import type { DiscoverArticle } from '../../types/discover';
 import SectionHeader from './SectionHeader';
@@ -39,8 +39,12 @@ function ReadRow({
         onPressOut={onPressOut}
         style={[styles.row, { backgroundColor: bgColor }]}
       >
-        {/* Accent strip */}
-        <View style={[styles.strip, { backgroundColor: article.gradient[0] }]} />
+        {/* Thumbnail or accent strip */}
+        {article.image_url ? (
+          <Image source={{ uri: article.image_url }} style={styles.thumbnail} resizeMode="cover" />
+        ) : (
+          <View style={[styles.strip, { backgroundColor: article.gradient[0] }]} />
+        )}
 
         {/* Content */}
         <View style={styles.content}>
@@ -50,6 +54,11 @@ function ReadRow({
           <Text numberOfLines={1} style={[styles.subtitle, { color: secondaryLabel }]}>
             {article.subtitle}
           </Text>
+          {article.source_name && (
+            <Text numberOfLines={1} style={[styles.source, { color: tertiaryLabel }]}>
+              {article.source_name}
+            </Text>
+          )}
         </View>
 
         {/* Read time */}
@@ -99,6 +108,17 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     alignSelf: 'stretch',
     marginRight: 12,
+  },
+  thumbnail: {
+    width: 56,
+    height: 56,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  source: {
+    fontSize: 10,
+    fontFamily: 'Outfit',
+    marginTop: 1,
   },
   content: {
     flex: 1,

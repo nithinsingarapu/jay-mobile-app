@@ -25,6 +25,9 @@ export interface DiscoverArticle {
   gradient: [string, string];
   emoji?: string;
   featured?: boolean;
+  image_url?: string;
+  source_url?: string;
+  source_name?: string;
 }
 
 // ── Ingredient Spotlight ────────────────────────────────────────────────

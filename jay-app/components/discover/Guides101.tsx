@@ -5,7 +5,9 @@ import {
   StyleSheet,
   Text,
   View,
+  Image,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../lib/theme';
 import type { DiscoverArticle } from '../../types/discover';
 import SectionHeader from './SectionHeader';
@@ -24,17 +26,24 @@ export default function Guides101({ articles, onArticlePress }: Guides101Props) 
         onPress={() => onArticlePress(item.id)}
         style={({ pressed }) => [
           styles.card,
-          { backgroundColor: item.gradient[0] },
+          !item.image_url && { backgroundColor: item.gradient[0] },
           pressed && styles.cardPressed,
         ]}
       >
+        {item.image_url && (
+          <>
+            <Image source={{ uri: item.image_url }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+            <LinearGradient colors={['transparent', 'rgba(0,0,0,0.7)']} style={StyleSheet.absoluteFillObject} locations={[0.2, 1]} />
+          </>
+        )}
         <View style={styles.cardContent}>
           <View style={styles.tag}>
-            <Text style={[styles.tagText, { color: colors.systemGreen }]}>BEGINNER</Text>
+            <Text style={[styles.tagText, { color: colors.systemGreen }]}>GUIDE</Text>
           </View>
           <Text numberOfLines={2} style={styles.title}>
             {item.title}
           </Text>
+          {item.source_name && <Text style={styles.source}>{item.source_name}</Text>}
           <Text style={styles.readTime}>{item.readTime}</Text>
         </View>
       </Pressable>
@@ -99,6 +108,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit-SemiBold',
     color: '#FFFFFF',
     lineHeight: 20,
+  },
+  source: {
+    fontSize: 10,
+    fontFamily: 'Outfit',
+    color: 'rgba(255, 255, 255, 0.4)',
+    marginTop: 2,
   },
   readTime: {
     fontSize: 11,

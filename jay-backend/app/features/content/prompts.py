@@ -102,7 +102,8 @@ RULES:
 - Each truth must cite a source_url
 - Assign departments from: skincare, haircare, bodycare
 - Do NOT invent myths not discussed in the sources
-- Output ONLY valid JSON array, no markdown fences.
+- Keep each myth/truth/explanation CONCISE (1-2 sentences each)
+- Output ONLY valid JSON array, no markdown fences. No trailing commas.
 
 RAW SOURCES:
 {sources_block}
@@ -127,7 +128,8 @@ RULES:
 - Cite the source for each tip
 - Assign departments from: skincare, haircare, bodycare
 - Do NOT invent tips not supported by the sources
-- Output ONLY valid JSON array, no markdown fences.
+- Keep title short (3-6 words) and body concise (1-2 sentences)
+- Output ONLY valid JSON array, no markdown fences. No trailing commas.
 
 RAW SOURCES:
 {sources_block}

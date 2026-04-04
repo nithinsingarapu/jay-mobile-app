@@ -61,6 +61,9 @@ export default function LearnTab() {
           readTime: `${a.read_time_minutes ?? 5} min`,
           departments: (a.departments || ['skincare']) as Department[],
           tags: a.tags, gradient: ['#1a2a3a', '#0a1520'] as [string, string],
+          image_url: a.image_url || undefined,
+          source_url: a.source_url || undefined,
+          source_name: a.source_name || undefined,
         };
       });
     return real.length > 0 ? real : GUIDE_ARTICLES.filter((i) => i.departments.includes(department));
@@ -119,6 +122,9 @@ export default function LearnTab() {
           readTime: `${a.read_time_minutes ?? 3} min`,
           departments: (a.departments || ['skincare']) as Department[],
           tags: a.tags, gradient: ['#1a2a3a', '#0a1520'] as [string, string],
+          image_url: a.image_url || undefined,
+          source_url: a.source_url || undefined,
+          source_name: a.source_name || undefined,
         };
       });
     return real.length > 0 ? real : EXPERT_ARTICLES.filter((i) => i.departments.includes(department));

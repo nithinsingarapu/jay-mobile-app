@@ -46,12 +46,17 @@ def _gemini_client():
 
 def _parse_json(text: str) -> dict | list | None:
     cleaned = text.strip()
+    # Strip markdown fences
     cleaned = re.sub(r"^```(?:json)?\s*\n?", "", cleaned)
     cleaned = re.sub(r"\n?\s*```\s*$", "", cleaned)
+
+    # Try direct parse
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError:
         pass
+
+    # Try finding complete JSON object/array
     for sc, ec in [('{', '}'), ('[', ']')]:
         s, e = cleaned.find(sc), cleaned.rfind(ec)
         if s != -1 and e > s:
@@ -59,11 +64,27 @@ def _parse_json(text: str) -> dict | list | None:
                 return json.loads(cleaned[s:e + 1])
             except json.JSONDecodeError:
                 continue
+
+    # Truncated array recovery: find last complete object in a truncated array
+    arr_start = cleaned.find('[')
+    if arr_start != -1:
+        # Find the last complete }, then close the array
+        last_brace = cleaned.rfind('}')
+        if last_brace > arr_start:
+            candidate = cleaned[arr_start:last_brace + 1] + ']'
+            try:
+                result = json.loads(candidate)
+                if isinstance(result, list) and len(result) > 0:
+                    logger.info(f"Recovered {len(result)} items from truncated JSON")
+                    return result
+            except json.JSONDecodeError:
+                pass
+
     logger.error(f"JSON parse failed: {text[:300]}")
     return None
 
 
-async def _ask_gemini(prompt: str, max_tokens: int = 4096) -> str:
+async def _ask_gemini(prompt: str, max_tokens: int = 8192) -> str:
     client = _gemini_client()
     config = GenerateContentConfig(temperature=0.2, max_output_tokens=max_tokens)
     try:
@@ -167,30 +188,48 @@ async def fetch_all_ingredients(names: list[str], db: AsyncSession) -> int:
 async def fetch_ingredient(name: str, db: AsyncSession) -> Ingredient | None:
     slug = slugify(name)
 
-    results = await asyncio.gather(
-        incidecoder_ingredient(slug),
-        pubmed_search(name, max_results=2),
-        serper_search(f'"{name}" skincare ingredient benefits', num=5),
-        return_exceptions=True,
-    )
-    all_r = _collect(results)
+    # Primary: Serper searches (most reliable) + Incidecoder + PubMed as bonus
+    serper1 = await _serper_with_images(f"{name} skincare ingredient benefits uses", num=8)
+    serper2 = await _serper_with_images(f"{name} for skin what it does side effects", num=5)
 
-    if not all_r:
-        fb = await asyncio.gather(
-            serper_search(f"{name} ingredient skin care uses", num=5),
-            return_exceptions=True,
-        )
-        all_r = _collect(fb)
+    # Build source text from Serper snippets (title + snippet)
+    all_r: list[FetchResult] = []
+    for r in serper1 + serper2:
+        if r["title"] and r["snippet"]:
+            all_r.append(FetchResult(
+                raw_text=f"{r['title']}\n{r['snippet']}",
+                source_url=r["link"],
+                source_name=r["source_name"],
+            ))
+
+    # Bonus: try Incidecoder and PubMed (non-blocking)
+    try:
+        inci = await incidecoder_ingredient(slug)
+        if inci.raw_text.strip():
+            all_r.append(inci)
+    except Exception:
+        pass
+    try:
+        pm = await pubmed_search(name, max_results=2)
+        all_r.extend(p for p in pm if p.raw_text.strip())
+    except Exception:
+        pass
 
     src = build_sources_block(all_r)
     if not src.strip():
+        logger.warning(f"No source data for ingredient '{name}'")
         return None
 
     data = _parse_json(await _ask_gemini(INGREDIENT_PROMPT.format(name=name, sources_block=src)))
     if not data or not isinstance(data, dict):
         return None
 
+    # Image: try multiple queries for best result
     image_url = await _fetch_image(f"{name} skincare ingredient")
+    if not image_url:
+        image_url = await _fetch_image(f"{name} serum product")
+    if not image_url:
+        image_url = await _fetch_image(name)
     now = datetime.now(timezone.utc)
     source_list = [{"url": r.source_url, "name": r.source_name} for r in all_r if r.source_url]
 
@@ -242,13 +281,15 @@ async def fetch_article(topic: str, db: AsyncSession) -> Article | None:
     if not results:
         return None
 
-    # Pick the best result (first with an image, or just first)
-    best = next((r for r in results if r["image_url"]), results[0])
+    # Pick the best result (first one)
+    best = results[0]
 
-    # Get image: from Serper result thumbnail, or dedicated image search
-    image_url = best.get("image_url")
+    # Always run dedicated image search for high-quality hero image
+    image_url = await _fetch_image(f"{best['title']} skincare article")
     if not image_url:
         image_url = await _fetch_image(f"{topic} skincare")
+    if not image_url:
+        image_url = best.get("image_url")  # Serper thumbnail as last resort
 
     # Use Gemini to classify the article type and extract tags
     classify_prompt = f"""Classify this article and extract metadata. Output ONLY valid JSON.
@@ -345,8 +386,10 @@ async def fetch_concern(name: str, db: AsyncSession) -> Concern | None:
     if not data or not isinstance(data, dict):
         return None
 
-    img_query = data.pop("image_search_query", f"{name} skincare")
+    img_query = data.pop("image_search_query", f"{name} skin condition")
     image_url = await _fetch_image(img_query)
+    if not image_url:
+        image_url = await _fetch_image(f"{name} skincare treatment")
     now = datetime.now(timezone.utc)
     source_list = [{"url": r.source_url, "name": r.source_name} for r in all_r if r.source_url]
 
@@ -386,7 +429,7 @@ async def fetch_all_myths(departments: list[str], db: AsyncSession) -> int:
     return count
 
 
-async def fetch_myths(department: str, db: AsyncSession, count: int = 10) -> list[Myth]:
+async def fetch_myths(department: str, db: AsyncSession, count: int = 6) -> list[Myth]:
     # Find myth-busting articles via Serper
     results = await _serper_with_images(
         f"common {department} myths debunked dermatologist", num=8,
@@ -453,7 +496,7 @@ async def fetch_all_tips(departments: list[str], db: AsyncSession) -> int:
     return count
 
 
-async def fetch_tips(department: str, db: AsyncSession, count: int = 10) -> list[Tip]:
+async def fetch_tips(department: str, db: AsyncSession, count: int = 6) -> list[Tip]:
     # Find tip articles via Serper
     results = await _serper_with_images(
         f"best {department} tips dermatologist recommended 2024", num=8,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, Image } from 'react-native';
 import { useTheme } from '../../lib/theme';
 import type { DiscoverArticle } from '../../types/discover';
 import SectionHeader from './SectionHeader';
@@ -25,23 +25,30 @@ export default function FromTheExperts({ articles, onArticlePress }: FromTheExpe
             pressed && styles.rowPressed,
           ]}
         >
-          <View style={styles.topRow}>
-            <Text style={[styles.author, { color: colors.label }]}>
-              {article.author}
-            </Text>
-            {article.authorCredentials ? (
-              <Text style={[styles.credentials, { color: colors.secondaryLabel }]}>
-                {article.authorCredentials}
+          <View style={styles.rowInner}>
+            {article.image_url && (
+              <Image source={{ uri: article.image_url }} style={styles.thumbnail} resizeMode="cover" />
+            )}
+            <View style={{ flex: 1 }}>
+              <View style={styles.topRow}>
+                <Text style={[styles.author, { color: colors.label }]}>
+                  {article.author || article.source_name}
+                </Text>
+                {article.authorCredentials ? (
+                  <Text style={[styles.credentials, { color: colors.secondaryLabel }]}>
+                    {article.authorCredentials}
+                  </Text>
+                ) : null}
+              </View>
+              <Text numberOfLines={2} style={[styles.title, { color: colors.label }]}>{article.title}</Text>
+              <Text numberOfLines={1} style={[styles.subtitle, { color: colors.secondaryLabel }]}>
+                {article.subtitle}
               </Text>
-            ) : null}
+              {article.source_name && (
+                <Text style={[styles.source, { color: colors.tertiaryLabel }]}>{article.source_name}</Text>
+              )}
+            </View>
           </View>
-          <Text style={[styles.title, { color: colors.label }]}>{article.title}</Text>
-          <Text numberOfLines={1} style={[styles.subtitle, { color: colors.secondaryLabel }]}>
-            {article.subtitle}
-          </Text>
-          <Text style={[styles.readTime, { color: colors.tertiaryLabel }]}>
-            {article.readTime}
-          </Text>
         </Pressable>
       ))}
     </View>
@@ -54,6 +61,20 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 8,
     padding: 14,
+  },
+  rowInner: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  thumbnail: {
+    width: 64,
+    height: 64,
+    borderRadius: 10,
+  },
+  source: {
+    fontSize: 10,
+    fontFamily: 'Outfit',
+    marginTop: 2,
   },
   rowPressed: {
     transform: [{ scale: 0.98 }],
