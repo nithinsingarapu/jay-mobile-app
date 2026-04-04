@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDiscoverStore, type Department } from '../../stores/discoverStore';
 import { useContentStore } from '../../stores/contentStore';
@@ -33,6 +33,9 @@ const INGREDIENT_EMOJIS: Record<string, string> = {
   exfoliant: '🫧', default: '⚗️',
 };
 
+// Map article/ingredient slug → source_url for redirect
+const _sourceUrls: Record<string, string> = {};
+
 export default function LearnTab() {
   const router = useRouter();
   const department = useDiscoverStore((s) => s.department);
@@ -49,25 +52,34 @@ export default function LearnTab() {
   const guides = useMemo<DiscoverArticle[]>(() => {
     const real = contentArticles
       .filter((a) => a.type === 'guide_101')
-      .map((a) => ({
-        id: a.slug, type: 'guide_101' as const, title: a.title,
-        subtitle: a.summary || '', body: a.body || '',
-        author: a.author_name || a.source_name, readTime: `${a.read_time_minutes ?? 5} min read`,
-        departments: (a.departments || ['skincare']) as Department[],
-        tags: a.tags, gradient: ['#1a2a3a', '#0a1520'] as [string, string],
-      }));
+      .map((a) => {
+        if (a.source_url) _sourceUrls[a.slug] = a.source_url;
+        return {
+          id: a.slug, type: 'guide_101' as const, title: a.title,
+          subtitle: a.summary || '', body: '',
+          author: a.source_name || a.author_name,
+          readTime: `${a.read_time_minutes ?? 5} min`,
+          departments: (a.departments || ['skincare']) as Department[],
+          tags: a.tags, gradient: ['#1a2a3a', '#0a1520'] as [string, string],
+        };
+      });
     return real.length > 0 ? real : GUIDE_ARTICLES.filter((i) => i.departments.includes(department));
   }, [contentArticles, department]);
 
   const ingredients = useMemo<IngredientDictEntry[]>(() => {
     if (contentIngredients.length > 0) {
-      return contentIngredients.map((ing) => ({
-        id: ing.slug, name: ing.name,
-        emoji: INGREDIENT_EMOJIS[ing.category || 'default'] || INGREDIENT_EMOJIS.default,
-        category: ing.category || 'other',
-        oneLiner: ing.what_it_does || '',
-        departments: (ing.departments || ['skincare']) as Department[],
-      }));
+      return contentIngredients.map((ing) => {
+        // Store the first source URL for ingredient redirect
+        const src = ing.sources?.[0];
+        if (src?.url) _sourceUrls[ing.slug] = src.url;
+        return {
+          id: ing.slug, name: ing.name,
+          emoji: INGREDIENT_EMOJIS[ing.category || 'default'] || INGREDIENT_EMOJIS.default,
+          category: ing.category || 'other',
+          oneLiner: ing.what_it_does || '',
+          departments: (ing.departments || ['skincare']) as Department[],
+        };
+      });
     }
     return INGREDIENT_DICTIONARY.filter((i) => i.departments.includes(department));
   }, [contentIngredients, department]);
@@ -97,15 +109,18 @@ export default function LearnTab() {
   const expertArticles = useMemo<DiscoverArticle[]>(() => {
     const real = contentArticles
       .filter((a) => a.type === 'expert_tip')
-      .map((a) => ({
-        id: a.slug, type: 'expert_tip' as const, title: a.title,
-        subtitle: a.summary || '', body: a.body || '',
-        author: a.author_name || a.source_name,
-        authorCredentials: a.author_credential,
-        readTime: `${a.read_time_minutes ?? 3} min read`,
-        departments: (a.departments || ['skincare']) as Department[],
-        tags: a.tags, gradient: ['#1a2a3a', '#0a1520'] as [string, string],
-      }));
+      .map((a) => {
+        if (a.source_url) _sourceUrls[a.slug] = a.source_url;
+        return {
+          id: a.slug, type: 'expert_tip' as const, title: a.title,
+          subtitle: a.summary || '', body: '',
+          author: a.source_name || a.author_name,
+          authorCredentials: a.author_credential,
+          readTime: `${a.read_time_minutes ?? 3} min`,
+          departments: (a.departments || ['skincare']) as Department[],
+          tags: a.tags, gradient: ['#1a2a3a', '#0a1520'] as [string, string],
+        };
+      });
     return real.length > 0 ? real : EXPERT_ARTICLES.filter((i) => i.departments.includes(department));
   }, [contentArticles, department]);
 
@@ -127,6 +142,12 @@ export default function LearnTab() {
   };
 
   const handleArticlePress = (id: string) => {
+    // Real articles redirect to source URL in browser
+    const sourceUrl = _sourceUrls[id];
+    if (sourceUrl) {
+      Linking.openURL(sourceUrl);
+      return;
+    }
     router.push({
       pathname: '/(screens)/article',
       params: { articleId: id, articleType: 'discover' },
@@ -134,6 +155,12 @@ export default function LearnTab() {
   };
 
   const handleIngredientPress = (id: string) => {
+    // Open ingredient source (e.g. Incidecoder page) in browser
+    const sourceUrl = _sourceUrls[id];
+    if (sourceUrl) {
+      Linking.openURL(sourceUrl);
+      return;
+    }
     router.push({
       pathname: '/(screens)/article',
       params: { articleId: id, articleType: 'discover' },

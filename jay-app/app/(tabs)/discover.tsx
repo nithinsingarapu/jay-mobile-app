@@ -46,9 +46,9 @@ export default function DiscoverScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadProducts();
+    await Promise.all([loadProducts(), loadAllContent(department)]);
     setRefreshing(false);
-  }, []);
+  }, [department]);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.systemBackground }]}>

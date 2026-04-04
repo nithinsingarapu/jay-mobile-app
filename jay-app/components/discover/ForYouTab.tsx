@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDiscoverStore, type Department } from '../../stores/discoverStore';
 import { useContentStore } from '../../stores/contentStore';
@@ -32,6 +32,9 @@ const CONCERN_EMOJIS: Record<string, string> = {
   'hair fall': '💇', dandruff: '❄️', frizz: '〰️', default: '🎯',
 };
 
+// Map article slug → source_url for redirect
+const _sourceUrls: Record<string, string> = {};
+
 export default function ForYouTab() {
   const router = useRouter();
   const department = useDiscoverStore((s) => s.department);
@@ -39,24 +42,27 @@ export default function ForYouTab() {
   const setActiveConcern = useDiscoverStore((s) => s.setActiveConcern);
   const setActiveTab = useDiscoverStore((s) => s.setActiveTab);
 
-  // Real content from API (falls back to mock if empty)
   const contentArticles = useContentStore((s) => s.articles);
   const contentIngredients = useContentStore((s) => s.ingredients);
   const contentConcerns = useContentStore((s) => s.concerns);
   const contentTips = useContentStore((s) => s.tips);
 
-  // ── Adapt API data to component types (with mock fallback) ─────────
+  // ── Adapt API data to component types ─────────────────────────────
   const deptArticles = useMemo<DiscoverArticle[]>(() => {
     const real = contentArticles
-      .filter((a) => a.type === 'editorial')
-      .map((a) => ({
-        id: a.slug, type: 'editorial' as const, title: a.title,
-        subtitle: a.summary || '', body: a.body || '',
-        author: a.author_name || a.source_name, readTime: `${a.read_time_minutes ?? 5} min read`,
-        departments: (a.departments || ['skincare']) as Department[],
-        tags: a.tags, gradient: ['#1a2a3a', '#0a1520'] as [string, string],
-        featured: true,
-      }));
+      .filter((a) => a.type === 'editorial' || a.type === 'guide_101')
+      .map((a) => {
+        if (a.source_url) _sourceUrls[a.slug] = a.source_url;
+        return {
+          id: a.slug, type: (a.type || 'editorial') as any, title: a.title,
+          subtitle: a.summary || '', body: '',
+          author: a.source_name || a.author_name,
+          readTime: `${a.read_time_minutes ?? 5} min`,
+          departments: (a.departments || ['skincare']) as Department[],
+          tags: a.tags, gradient: ['#1a2a3a', '#0a1520'] as [string, string],
+          featured: true,
+        };
+      });
     return real.length > 0 ? real : FEATURED_ARTICLES.filter((a) => a.departments.includes(department));
   }, [contentArticles, department]);
 
@@ -107,15 +113,18 @@ export default function ForYouTab() {
   const expertArticles = useMemo<DiscoverArticle[]>(() => {
     const real = contentArticles
       .filter((a) => a.type === 'expert_tip')
-      .map((a) => ({
-        id: a.slug, type: 'expert_tip' as const, title: a.title,
-        subtitle: a.summary || '', body: a.body || '',
-        author: a.author_name || a.source_name,
-        authorCredentials: a.author_credential,
-        readTime: `${a.read_time_minutes ?? 3} min read`,
-        departments: (a.departments || ['skincare']) as Department[],
-        tags: a.tags, gradient: ['#1a2a3a', '#0a1520'] as [string, string],
-      }));
+      .map((a) => {
+        if (a.source_url) _sourceUrls[a.slug] = a.source_url;
+        return {
+          id: a.slug, type: 'expert_tip' as const, title: a.title,
+          subtitle: a.summary || '', body: '',
+          author: a.source_name || a.author_name,
+          authorCredentials: a.author_credential,
+          readTime: `${a.read_time_minutes ?? 3} min`,
+          departments: (a.departments || ['skincare']) as Department[],
+          tags: a.tags, gradient: ['#1a2a3a', '#0a1520'] as [string, string],
+        };
+      });
     return real.length > 0 ? real : EXPERT_ARTICLES.filter((a) => a.departments.includes(department));
   }, [contentArticles, department]);
 
@@ -135,13 +144,17 @@ export default function ForYouTab() {
   const popularReads = useMemo<DiscoverArticle[]>(() => {
     const real = contentArticles
       .filter((a) => a.type === 'popular_read')
-      .map((a) => ({
-        id: a.slug, type: 'popular_read' as const, title: a.title,
-        subtitle: a.summary || '', body: a.body || '',
-        author: a.author_name || a.source_name, readTime: `${a.read_time_minutes ?? 4} min read`,
-        departments: (a.departments || ['skincare']) as Department[],
-        tags: a.tags, gradient: ['#1a2a3a', '#0a1520'] as [string, string],
-      }));
+      .map((a) => {
+        if (a.source_url) _sourceUrls[a.slug] = a.source_url;
+        return {
+          id: a.slug, type: 'popular_read' as const, title: a.title,
+          subtitle: a.summary || '', body: '',
+          author: a.source_name || a.author_name,
+          readTime: `${a.read_time_minutes ?? 4} min`,
+          departments: (a.departments || ['skincare']) as Department[],
+          tags: a.tags, gradient: ['#1a2a3a', '#0a1520'] as [string, string],
+        };
+      });
     return real.length > 0 ? real : POPULAR_READS.filter((a) => a.departments.includes(department));
   }, [contentArticles, department]);
 
@@ -151,6 +164,13 @@ export default function ForYouTab() {
   };
 
   const onArticlePress = (id: string) => {
+    // Real articles redirect to source URL in browser
+    const sourceUrl = _sourceUrls[id];
+    if (sourceUrl) {
+      Linking.openURL(sourceUrl);
+      return;
+    }
+    // Mock articles open internal article screen
     router.push({
       pathname: '/(screens)/article',
       params: { articleId: id, articleType: 'discover' },
