@@ -5,6 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useUserStore } from '../stores/userStore';
 import { ThemeProvider, useTheme } from '../lib/theme';
+import { initNotifications } from '../services/notifications';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -25,6 +26,7 @@ function RootNavigator() {
 
   useEffect(() => {
     initAuth();
+    initNotifications().catch(() => {});
     const timeout = setTimeout(() => {
       if (useUserStore.getState().isAuthLoading) {
         useUserStore.setState({ isAuthLoading: false });
