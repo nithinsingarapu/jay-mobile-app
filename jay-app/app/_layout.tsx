@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useUserStore } from '../stores/userStore';
 import { ThemeProvider, useTheme } from '../lib/theme';
 import { initNotifications } from '../services/notifications';
+import * as Notifications from 'expo-notifications';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -27,12 +28,21 @@ function RootNavigator() {
   useEffect(() => {
     initAuth();
     initNotifications().catch(() => {});
+
+    // Handle notification tap → navigate to routine screen
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data;
+      if (data?.screen === 'routine') {
+        router.push('/(screens)/routine' as any);
+      }
+    });
+
     const timeout = setTimeout(() => {
       if (useUserStore.getState().isAuthLoading) {
         useUserStore.setState({ isAuthLoading: false });
       }
     }, 5000);
-    return () => clearTimeout(timeout);
+    return () => { clearTimeout(timeout); sub.remove(); };
   }, []);
 
   useEffect(() => {

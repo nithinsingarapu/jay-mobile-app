@@ -17,16 +17,16 @@ const SCHEDULED_IDS_KEY = '@jay_scheduled_notif_ids';
 // ══════════════════════════════════════════════════════════════════════
 
 const MORNING_MESSAGES = [
-  { title: 'Rise and glow! ☀️', body: "Your skin waited all night for this moment. Let's not disappoint it." },
-  { title: 'Good morning, gorgeous 🌅', body: "SPF isn't optional today. Neither is that vitamin C." },
-  { title: 'Skin o\'clock! ⏰', body: "Your morning routine called — it misses you." },
-  { title: 'GM! Your skin says hi 👋', body: "Cleanser → Serum → Moisturizer → SPF. You know the drill." },
-  { title: 'Wake up, buttercup 🌻', body: "The sun's already damaging collagen out there. Armor up!" },
-  { title: 'Plot twist: you\'re glowing ✨', body: "But only if you do your AM routine first." },
-  { title: 'Your skin has entered the chat 💬', body: "It wants cleanser, vitamin C, and SPF. In that order." },
-  { title: 'Skincare before scrolling 📱', body: "Your face will thank you. Instagram can wait 5 minutes." },
-  { title: 'Breaking news 📰', body: "Local skin found looking AMAZING after morning routine. Film at 11." },
-  { title: 'JAY here 🤖', body: "Gentle reminder: your moisturizer is feeling lonely on the shelf." },
+  { title: 'Rise and glow! ☀️', body: "Your skin waited all night for this moment. Open JAY and check off your steps!" },
+  { title: 'Good morning, gorgeous 🌅', body: "SPF isn't optional today. Log your morning routine in JAY 🧴" },
+  { title: 'Skin o\'clock! ⏰', body: "Your morning routine called — it misses you. Tap to log it." },
+  { title: 'GM! Your skin says hi 👋', body: "Cleanser → Serum → Moisturizer → SPF. Open JAY to track." },
+  { title: 'Wake up, buttercup 🌻', body: "The sun's already damaging collagen. Armor up and log it in JAY!" },
+  { title: 'Plot twist: you\'re glowing ✨', body: "But only if you do your AM routine first. Tap to start." },
+  { title: 'Your skin has entered the chat 💬', body: "It wants cleanser, vitamin C, and SPF. Open JAY to check them off." },
+  { title: 'Skincare before scrolling 📱', body: "5 minutes in JAY > 47 minutes on Instagram. Log your routine!" },
+  { title: 'Breaking news 📰', body: "Local skin looks AMAZING after logging morning routine in JAY. You next?" },
+  { title: 'JAY here 🤖', body: "Your moisturizer is feeling lonely. Open the app and give it purpose." },
 ];
 
 const AFTERNOON_MESSAGES = [
@@ -45,16 +45,16 @@ const EVENING_MESSAGES = [
 ];
 
 const NIGHT_MESSAGES = [
-  { title: 'PM routine time 🌙', body: "Your skin does 70% of its repair while you sleep. Don't send it in unprepared." },
-  { title: 'Skin recovery mode 💤', body: "Double cleanse → Treatment → Moisturizer. Your skin will wake up grateful." },
-  { title: 'Night shift starts now 🔬', body: "Retinol and your pillow have a date. Don't be late." },
-  { title: 'Friendly reminder from JAY 🤖', body: "Sleeping in makeup is a hate crime against your pores. Just saying." },
-  { title: 'Confession time 🙈', body: "Your PM routine takes 5 minutes. That TikTok scroll? 47 minutes." },
-  { title: 'Your skin\'s bedtime story 📖', body: "Once upon a time, someone cleansed and moisturized before bed. They had amazing skin. The end." },
-  { title: 'Last call for skincare 🛎️', body: "The bar is closing. Your moisturizer is waiting. Let's do this." },
-  { title: 'Nighttime = repair time 🔧', body: "Ceramides, retinol, and 8 hours of sleep. The holy trinity." },
-  { title: 'JAY\'s nightly nudge 💫', body: "Tomorrow's glow is tonight's routine. Don't skip it." },
-  { title: 'Did you know? 🧪', body: "Skin cell turnover peaks between 11pm-4am. Give it the tools it needs." },
+  { title: 'PM routine time 🌙', body: "Your skin repairs while you sleep. Open JAY and log your steps before bed!" },
+  { title: 'Skin recovery mode 💤', body: "Double cleanse → Treatment → Moisturizer. Tap to check them off in JAY." },
+  { title: 'Night shift starts now 🔬', body: "Retinol and your pillow have a date. Log it in JAY — don't be late." },
+  { title: 'Friendly reminder from JAY 🤖', body: "Sleeping in makeup is a hate crime against your pores. Open JAY, do the thing." },
+  { title: 'Confession time 🙈', body: "PM routine: 5 min. TikTok scroll: 47 min. Open JAY and be the hero." },
+  { title: 'Your skin\'s bedtime story 📖', body: "Once upon a time, someone logged their PM routine in JAY. They had amazing skin. The end." },
+  { title: 'Last call for skincare 🛎️', body: "The bar is closing. Open JAY and check off your night steps." },
+  { title: 'Nighttime = repair time 🔧', body: "Ceramides + retinol + logging in JAY. The actual holy trinity." },
+  { title: 'JAY\'s nightly nudge 💫', body: "Tomorrow's glow is tonight's routine. Tap to log it now." },
+  { title: 'Did you know? 🧪', body: "Skin turnover peaks 11pm-4am. Open JAY and prep your skin for repair mode." },
 ];
 
 const STREAK_MESSAGES = [
@@ -182,14 +182,16 @@ async function scheduleDaily(
   hour: number,
   minute: number,
   messages: { title: string; body: string }[],
+  session: string,
   channelId = 'routine-reminders',
 ): Promise<string> {
   const msg = pickRandom(messages);
   const id = await Notifications.scheduleNotificationAsync({
     content: {
       title: msg.title,
-      body: msg.body,
+      body: msg.body + '\n\nTap to open JAY and log your routine →',
       sound: 'default',
+      data: { screen: 'routine', session, action: 'log' },
       ...(Platform.OS === 'android' ? { channelId } : {}),
     },
     trigger: {
@@ -218,19 +220,19 @@ export async function scheduleAllRoutineNotifications(
   const scheduledIds: string[] = [];
 
   if (s.morning.enabled) {
-    const id = await scheduleDaily(s.morning.hour, s.morning.minute, MORNING_MESSAGES);
+    const id = await scheduleDaily(s.morning.hour, s.morning.minute, MORNING_MESSAGES, 'morning');
     scheduledIds.push(id);
   }
   if (s.afternoon.enabled) {
-    const id = await scheduleDaily(s.afternoon.hour, s.afternoon.minute, AFTERNOON_MESSAGES);
+    const id = await scheduleDaily(s.afternoon.hour, s.afternoon.minute, AFTERNOON_MESSAGES, 'afternoon');
     scheduledIds.push(id);
   }
   if (s.evening.enabled) {
-    const id = await scheduleDaily(s.evening.hour, s.evening.minute, EVENING_MESSAGES);
+    const id = await scheduleDaily(s.evening.hour, s.evening.minute, EVENING_MESSAGES, 'evening');
     scheduledIds.push(id);
   }
   if (s.night.enabled) {
-    const id = await scheduleDaily(s.night.hour, s.night.minute, NIGHT_MESSAGES);
+    const id = await scheduleDaily(s.night.hour, s.night.minute, NIGHT_MESSAGES, 'night');
     scheduledIds.push(id);
   }
 
