@@ -9,7 +9,7 @@ export default function DiaryRedirect() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace({ pathname: '/(screens)/routine', params: { tab: '3' } } as any);
+    router.push({ pathname: '/(screens)/routine', params: { tab: '3' } } as any);
   }, []);
 
   return null;

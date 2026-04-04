@@ -16,7 +16,7 @@ export default function RoutineHeader({ onPlusPress }: RoutineHeaderProps) {
     <View style={styles.container}>
       <View style={styles.leftGroup}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/' as any)}
           activeOpacity={0.6}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={styles.backBtn}
