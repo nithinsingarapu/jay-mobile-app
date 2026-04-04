@@ -26,6 +26,7 @@ interface RoutineState {
   activeSegment: 'today' | 'routines' | 'stats';
   completingStepId: string | null;
   completingAll: boolean;
+  dailyHistory: { date: string; adherence_percentage: number; completed_steps: number; total_steps: number }[];
 
   // ── Actions ───────────────────────────────────────────────────────
   init: () => Promise<void>;
@@ -43,6 +44,7 @@ interface RoutineState {
   loadStats: (days?: number) => Promise<void>;
   loadCost: () => Promise<void>;
   loadConflicts: () => Promise<void>;
+  loadHistory: (days?: number) => Promise<void>;
   setActiveSegment: (s: 'today' | 'routines' | 'stats') => void;
   setSelectedRoutineId: (id: string | null) => void;
 }
@@ -62,6 +64,7 @@ export const useRoutineStore = create<RoutineState>((set, get) => ({
   activeSegment: 'today',
   completingStepId: null,
   completingAll: false,
+  dailyHistory: [],
 
   // ── Init: load routines + statuses + streak ───────────────────────
   init: async () => {
@@ -331,6 +334,22 @@ export const useRoutineStore = create<RoutineState>((set, get) => ({
       set({ conflicts: await routineService.getConflicts() });
     } catch (e) {
       console.error('[Routine] Load conflicts:', e);
+    }
+  },
+
+  loadHistory: async (days = 120) => {
+    try {
+      const result = await routineService.getHistory(days);
+      set({
+        dailyHistory: result.daily.map((d) => ({
+          date: d.date,
+          adherence_percentage: d.adherence_percentage,
+          completed_steps: d.completed_steps,
+          total_steps: d.total_steps,
+        })),
+      });
+    } catch (e) {
+      console.error('[Routine] Load history:', e);
     }
   },
 

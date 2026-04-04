@@ -16,6 +16,7 @@ from .schemas import (
     CreateRoutineRequest, AddStepRequest, UpdateStepRequest,
     ReorderStepsRequest, CompleteStepRequest, StepOut, RoutineOut,
     TodayStatusOut, CompletionStatusOut, StatsOut,
+    DailyHistoryEntry, HistoryOut,
 )
 
 
@@ -344,6 +345,66 @@ async def get_stats(user: CurrentUser, period_days: int, db: AsyncSession) -> St
         adherence_percentage=adherence,
         current_streak=current_streak,
         longest_streak=longest_streak,
+    )
+
+
+async def get_daily_history(user: CurrentUser, period_days: int, db: AsyncSession) -> HistoryOut:
+    """Return per-day completion data for heatmap and weekly charts."""
+    today = date.today()
+    start_date = today - timedelta(days=period_days - 1)
+
+    # Total active steps (used as daily expected count)
+    routines_result = await db.execute(
+        select(Routine).where(Routine.user_id == user.id, Routine.is_active == True)
+    )
+    routines = routines_result.scalars().all()
+
+    total_steps = 0
+    for r in routines:
+        count_result = await db.execute(
+            select(func.count(RoutineStep.id)).where(RoutineStep.routine_id == r.id)
+        )
+        total_steps += count_result.scalar() or 0
+
+    # All completions in period
+    comp_result = await db.execute(
+        select(RoutineCompletion).where(
+            RoutineCompletion.user_id == user.id,
+            RoutineCompletion.completion_date >= start_date,
+        )
+    )
+    completions = comp_result.scalars().all()
+
+    # Group by date
+    by_date: dict[date, list[RoutineCompletion]] = {}
+    for c in completions:
+        by_date.setdefault(c.completion_date, []).append(c)
+
+    # Build daily entries
+    daily: list[DailyHistoryEntry] = []
+    d = start_date
+    while d <= today:
+        day_comps = by_date.get(d, [])
+        completed = sum(1 for c in day_comps if not c.skipped)
+        skipped = sum(1 for c in day_comps if c.skipped)
+        missed = max(0, total_steps - completed - skipped)
+        pct = round((completed / total_steps) * 100) if total_steps > 0 else 0
+
+        daily.append(DailyHistoryEntry(
+            date=d.isoformat(),
+            total_steps=total_steps,
+            completed_steps=completed,
+            skipped_steps=skipped,
+            missed_steps=missed,
+            adherence_percentage=pct,
+        ))
+        d += timedelta(days=1)
+
+    return HistoryOut(
+        period_days=period_days,
+        start_date=start_date.isoformat(),
+        end_date=today.isoformat(),
+        daily=daily,
     )
 
 

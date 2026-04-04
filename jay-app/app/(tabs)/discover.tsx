@@ -5,9 +5,11 @@ import {
   Text,
   StyleSheet,
   RefreshControl,
+  Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import SvgLib, { Path as SvgPath } from 'react-native-svg';
 import { useTheme } from '../../lib/theme';
 import { useDiscoverStore } from '../../stores/discoverStore';
 
@@ -57,8 +59,15 @@ export default function DiscoverScreen() {
           />
         }
       >
-        {/* Title */}
-        <Text style={[styles.title, { color: colors.label }]}>Discover</Text>
+        {/* Title with back button */}
+        <View style={styles.headerRow}>
+          <Pressable onPress={() => router.replace('/(tabs)/' as any)} hitSlop={8} style={styles.backBtn}>
+            <SvgLib width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={colors.systemBlue} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <SvgPath d="M15 18l-6-6 6-6" />
+            </SvgLib>
+          </Pressable>
+          <Text style={[styles.title, { color: colors.label }]}>Discover</Text>
+        </View>
 
         {/* Search bar */}
         <View style={styles.searchWrap}>
@@ -84,12 +93,23 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    gap: 4,
+  },
+  backBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: {
     fontSize: 34,
     fontWeight: '700',
     fontFamily: 'Outfit-Bold',
     letterSpacing: 0.37,
-    paddingHorizontal: 20,
   },
   searchWrap: {
     paddingHorizontal: 16,

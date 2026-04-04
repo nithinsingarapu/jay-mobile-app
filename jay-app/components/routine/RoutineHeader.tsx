@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import Svg, { Circle, Line } from 'react-native-svg';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
+import { useRouter } from 'expo-router';
 import { useTheme } from '../../lib/theme';
 
 interface RoutineHeaderProps {
@@ -9,10 +10,23 @@ interface RoutineHeaderProps {
 
 export default function RoutineHeader({ onPlusPress }: RoutineHeaderProps) {
   const { colors } = useTheme();
+  const router = useRouter();
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.title, { color: colors.label }]}>Routine</Text>
+      <View style={styles.leftGroup}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          activeOpacity={0.6}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={styles.backBtn}
+        >
+          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={colors.systemBlue} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <Path d="M15 18l-6-6 6-6" />
+          </Svg>
+        </TouchableOpacity>
+        <Text style={[styles.title, { color: colors.label }]}>Routine</Text>
+      </View>
       <TouchableOpacity
         onPress={onPlusPress}
         activeOpacity={0.6}
@@ -58,6 +72,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 8,
+  },
+  leftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  backBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontSize: 34,

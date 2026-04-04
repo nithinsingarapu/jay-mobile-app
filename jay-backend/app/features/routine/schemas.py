@@ -131,6 +131,22 @@ class StatsOut(BaseModel):
     longest_streak: int
 
 
+class DailyHistoryEntry(BaseModel):
+    date: str
+    total_steps: int
+    completed_steps: int
+    skipped_steps: int
+    missed_steps: int
+    adherence_percentage: int
+
+
+class HistoryOut(BaseModel):
+    period_days: int
+    start_date: str
+    end_date: str
+    daily: list[DailyHistoryEntry]
+
+
 class ConflictOut(BaseModel):
     ingredient_a: str
     ingredient_b: str

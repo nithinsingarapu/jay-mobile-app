@@ -64,6 +64,14 @@ export const routineService = {
   getStreak: () =>
     apiFetch<{ current_streak: number; longest_streak: number }>('/api/v1/routine/streak'),
 
+  getHistory: (days = 120) =>
+    apiFetch<{
+      period_days: number;
+      start_date: string;
+      end_date: string;
+      daily: { date: string; total_steps: number; completed_steps: number; skipped_steps: number; missed_steps: number; adherence_percentage: number }[];
+    }>(`/api/v1/routine/history?period=${days}`),
+
   // ── Conflicts ───────────────────────────────────────────────────────
   getConflicts: () =>
     apiFetch<ConflictOut[]>('/api/v1/routine/conflicts'),

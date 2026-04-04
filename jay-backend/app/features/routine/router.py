@@ -14,7 +14,7 @@ from .schemas import (
     ReorderStepsRequest, CompleteStepRequest, GenerateRoutineRequest,
     ValidateRoutineRequest, StepOut, RoutineOut, RoutineOverview,
     TodayStatusOut, StatsOut, ValidationResultOut, GeneratedRoutineOut,
-    ConflictOut,
+    ConflictOut, HistoryOut,
 )
 from app.features.products.service import search_for_routine_step
 from app.features.products.schemas import ProductOut
@@ -35,6 +35,11 @@ async def get_routine_types():
 @router.get("/stats", response_model=StatsOut)
 async def get_stats(user: AuthenticatedUser, db: DbSession, period: int = Query(7, ge=1, le=365)):
     return await service.get_stats(user, period, db)
+
+
+@router.get("/history", response_model=HistoryOut)
+async def get_daily_history(user: AuthenticatedUser, db: DbSession, period: int = Query(120, ge=1, le=365)):
+    return await service.get_daily_history(user, period, db)
 
 
 @router.get("/streak")
