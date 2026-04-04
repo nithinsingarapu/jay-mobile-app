@@ -60,6 +60,10 @@ def create_app() -> FastAPI:
     from app.features.routine.router import router as routine_router
     app.include_router(routine_router, prefix="/api/v1/routine", tags=["Routine"])
 
+    # Content (Discover section — articles, ingredients, concerns, myths, tips)
+    from app.features.content.router import router as content_router
+    app.include_router(content_router, prefix="/api/v1/content", tags=["Content"])
+
     # Dev-only: test token generator (no frontend needed to test)
     if settings.debug:
         import jwt as pyjwt

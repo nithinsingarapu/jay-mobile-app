@@ -9,6 +9,7 @@ from app.features.profile.models import UserProfile  # noqa: F401
 from app.features.chat.models import Conversation, Message  # noqa: F401
 from app.features.products.models import Product  # noqa: F401
 from app.features.routine.models import Routine, RoutineStep, RoutineCompletion, RoutineGeneration  # noqa: F401
+from app.features.content.models import Ingredient, Article, Concern, Myth, Tip  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:
