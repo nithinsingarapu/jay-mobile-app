@@ -71,6 +71,48 @@ async def generate_routine_endpoint(data: GenerateRoutineRequest, user: Authenti
     return await generate_routine(user, data, db)
 
 
+# ── JAY Assist (fast, Groq-powered) ─────────────────────────────────
+
+@router.post("/assist/suggest-steps")
+async def assist_suggest_steps(
+    data: dict, user: AuthenticatedUser, db: DbSession,
+):
+    """JAY suggests step categories based on routine purpose."""
+    from .jay_assist import suggest_steps
+    return await suggest_steps(
+        user,
+        routine_name=data.get("routine_name", ""),
+        routine_description=data.get("routine_description", ""),
+        session=data.get("session", "morning"),
+        db=db,
+    )
+
+
+@router.post("/assist/pick-product")
+async def assist_pick_product(
+    data: dict, user: AuthenticatedUser, db: DbSession,
+):
+    """JAY picks the best product for a step category."""
+    from .jay_assist import pick_product
+    return await pick_product(
+        user,
+        category=data.get("category", ""),
+        routine_context=data.get("routine_context", ""),
+        db=db,
+    )
+
+
+@router.post("/assist/suggest-instruction")
+async def assist_suggest_instruction(data: dict, user: AuthenticatedUser, db: DbSession):
+    """JAY writes a personalized application instruction."""
+    from .jay_assist import suggest_instruction
+    return await suggest_instruction(
+        category=data.get("category", ""),
+        product_name=data.get("product_name", ""),
+        session=data.get("session", "morning"),
+    )
+
+
 @router.post("/validate", response_model=ValidationResultOut)
 async def validate_routine_endpoint(data: ValidateRoutineRequest, user: AuthenticatedUser, db: DbSession):
     steps_dicts = [s.model_dump() for s in data.steps]

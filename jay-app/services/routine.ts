@@ -87,4 +87,20 @@ export const routineService = {
     apiFetch<SearchProduct[]>(
       `/api/v1/routine/products/search?category=${category}${budget ? `&budget=${budget}` : ''}`,
     ),
+
+  // ── JAY Assist (fast, Groq-powered) ────────────────────────────────
+  assistSuggestSteps: (data: { routine_name: string; routine_description: string; session: string }) =>
+    apiFetch<{ steps: string[]; reasoning: string }>(
+      '/api/v1/routine/assist/suggest-steps', { method: 'POST', body: data },
+    ),
+
+  assistPickProduct: (data: { category: string; routine_context: string }) =>
+    apiFetch<{ product_id: number | null; product_name: string; product_brand: string | null; reasoning: string }>(
+      '/api/v1/routine/assist/pick-product', { method: 'POST', body: data },
+    ),
+
+  assistSuggestInstruction: (data: { category: string; product_name: string; session: string }) =>
+    apiFetch<{ instruction: string; wait_time_seconds: number | null }>(
+      '/api/v1/routine/assist/suggest-instruction', { method: 'POST', body: data },
+    ),
 };
