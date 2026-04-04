@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SvgLib, { Path as SvgPath } from 'react-native-svg';
 import { useTheme } from '../../lib/theme';
 import { useDiscoverStore } from '../../stores/discoverStore';
+import { useContentStore } from '../../stores/contentStore';
 
 // Shared components
 import SearchBar from '../../components/discover/SearchBar';
@@ -28,14 +29,20 @@ export default function DiscoverScreen() {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const activeTab = useDiscoverStore((s) => s.activeTab);
+  const department = useDiscoverStore((s) => s.department);
   const loadProducts = useDiscoverStore((s) => s.loadProducts);
   const loadBrands = useDiscoverStore((s) => s.loadBrands);
+  const loadAllContent = useContentStore((s) => s.loadAllForDepartment);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadProducts();
     loadBrands();
   }, []);
+
+  useEffect(() => {
+    loadAllContent(department);
+  }, [department]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

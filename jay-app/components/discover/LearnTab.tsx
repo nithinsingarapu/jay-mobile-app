@@ -1,19 +1,37 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useDiscoverStore } from '../../stores/discoverStore';
+import { useDiscoverStore, type Department } from '../../stores/discoverStore';
+import { useContentStore } from '../../stores/contentStore';
 import {
   GUIDE_ARTICLES,
   INGREDIENT_DICTIONARY,
-  CONCERNS,
+  CONCERNS as MOCK_CONCERNS,
   MYTH_BUSTERS,
   EXPERT_ARTICLES,
 } from '../../data/mockDiscoverContent';
+import type { DiscoverArticle, DiscoverConcern, MythBuster, IngredientDictEntry } from '../../types/discover';
 import Guides101 from './Guides101';
 import IngredientDictionary from './IngredientDictionary';
 import ByConcernGrid from './ByConcernGrid';
 import MythBustersScroll from './MythBustersScroll';
 import FromTheExperts from './FromTheExperts';
+
+const CONCERN_COLORS: Record<string, string> = {
+  acne: '#FF3B30', pigmentation: '#FF9500', aging: '#AF52DE', dryness: '#5AC8FA',
+  sensitivity: '#FF2D55', dullness: '#FFCC00', oiliness: '#34C759', redness: '#FF6B6B',
+  'hair fall': '#8E8E93', dandruff: '#A2845E', frizz: '#5856D6', default: '#007AFF',
+};
+const CONCERN_EMOJIS: Record<string, string> = {
+  acne: '🔴', pigmentation: '🌑', aging: '⏳', dryness: '🏜️',
+  sensitivity: '⚡', dullness: '😶', oiliness: '💧', redness: '🔥',
+  'hair fall': '💇', dandruff: '❄️', frizz: '〰️', default: '🎯',
+};
+const INGREDIENT_EMOJIS: Record<string, string> = {
+  vitamin: '💊', acid: '🧪', peptide: '🔬', antioxidant: '🛡️',
+  humectant: '💧', emollient: '🧴', botanical: '🌿', retinoid: '✨',
+  exfoliant: '🫧', default: '⚗️',
+};
 
 export default function LearnTab() {
   const router = useRouter();
@@ -22,27 +40,74 @@ export default function LearnTab() {
   const setActiveConcern = useDiscoverStore((s) => s.setActiveConcern);
   const setActiveTab = useDiscoverStore((s) => s.setActiveTab);
 
-  // Filter content by current department
-  const guides = useMemo(
-    () => GUIDE_ARTICLES.filter((i) => i.departments.includes(department)),
-    [department],
-  );
-  const ingredients = useMemo(
-    () => INGREDIENT_DICTIONARY.filter((i) => i.departments.includes(department)),
-    [department],
-  );
-  const concerns = useMemo(
-    () => CONCERNS.filter((i) => i.departments.includes(department)),
-    [department],
-  );
-  const myths = useMemo(
-    () => MYTH_BUSTERS.filter((i) => i.departments.includes(department)),
-    [department],
-  );
-  const expertArticles = useMemo(
-    () => EXPERT_ARTICLES.filter((i) => i.departments.includes(department)),
-    [department],
-  );
+  const contentArticles = useContentStore((s) => s.articles);
+  const contentIngredients = useContentStore((s) => s.ingredients);
+  const contentConcerns = useContentStore((s) => s.concerns);
+  const contentMyths = useContentStore((s) => s.myths);
+
+  // Adapt API data with mock fallback
+  const guides = useMemo<DiscoverArticle[]>(() => {
+    const real = contentArticles
+      .filter((a) => a.type === 'guide_101')
+      .map((a) => ({
+        id: a.slug, type: 'guide_101' as const, title: a.title,
+        subtitle: a.summary || '', body: a.body || '',
+        author: a.author_name || a.source_name, readTime: `${a.read_time_minutes ?? 5} min read`,
+        departments: (a.departments || ['skincare']) as Department[],
+        tags: a.tags, gradient: ['#1a2a3a', '#0a1520'] as [string, string],
+      }));
+    return real.length > 0 ? real : GUIDE_ARTICLES.filter((i) => i.departments.includes(department));
+  }, [contentArticles, department]);
+
+  const ingredients = useMemo<IngredientDictEntry[]>(() => {
+    if (contentIngredients.length > 0) {
+      return contentIngredients.map((ing) => ({
+        id: ing.slug, name: ing.name,
+        emoji: INGREDIENT_EMOJIS[ing.category || 'default'] || INGREDIENT_EMOJIS.default,
+        category: ing.category || 'other',
+        oneLiner: ing.what_it_does || '',
+        departments: (ing.departments || ['skincare']) as Department[],
+      }));
+    }
+    return INGREDIENT_DICTIONARY.filter((i) => i.departments.includes(department));
+  }, [contentIngredients, department]);
+
+  const concerns = useMemo<DiscoverConcern[]>(() => {
+    if (contentConcerns.length > 0) {
+      return contentConcerns.map((c) => ({
+        id: c.slug, name: c.name,
+        emoji: CONCERN_EMOJIS[c.name.toLowerCase()] || CONCERN_EMOJIS.default,
+        color: CONCERN_COLORS[c.name.toLowerCase()] || CONCERN_COLORS.default,
+        departments: (c.departments || ['skincare']) as Department[],
+      }));
+    }
+    return MOCK_CONCERNS.filter((i) => i.departments.includes(department));
+  }, [contentConcerns, department]);
+
+  const myths = useMemo<MythBuster[]>(() => {
+    if (contentMyths.length > 0) {
+      return contentMyths.map((m) => ({
+        id: String(m.id), myth: m.myth, truth: m.truth, emoji: '🤔',
+        departments: (m.departments || ['skincare']) as Department[],
+      }));
+    }
+    return MYTH_BUSTERS.filter((i) => i.departments.includes(department));
+  }, [contentMyths, department]);
+
+  const expertArticles = useMemo<DiscoverArticle[]>(() => {
+    const real = contentArticles
+      .filter((a) => a.type === 'expert_tip')
+      .map((a) => ({
+        id: a.slug, type: 'expert_tip' as const, title: a.title,
+        subtitle: a.summary || '', body: a.body || '',
+        author: a.author_name || a.source_name,
+        authorCredentials: a.author_credential,
+        readTime: `${a.read_time_minutes ?? 3} min read`,
+        departments: (a.departments || ['skincare']) as Department[],
+        tags: a.tags, gradient: ['#1a2a3a', '#0a1520'] as [string, string],
+      }));
+    return real.length > 0 ? real : EXPERT_ARTICLES.filter((i) => i.departments.includes(department));
+  }, [contentArticles, department]);
 
   // Compute real product counts per concern
   const productCounts = useMemo(() => {
