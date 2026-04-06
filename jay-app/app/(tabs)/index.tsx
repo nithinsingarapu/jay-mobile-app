@@ -122,7 +122,7 @@ export default function HomeScreen() {
       <ForYouCarousel />
 
       {/* ── Insight ────────────────────────────────────────── */}
-      <InsightNudge text="Your skin responds well to niacinamide — 8 good days since adding it." />
+      <InsightNudge />
 
       {/* ── Cap or Slap ────────────────────────────────────── */}
       <CapSlapPreview verdicts={mockCapSlapVerdicts} />

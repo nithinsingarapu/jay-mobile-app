@@ -8,7 +8,7 @@ from . import service
 from .schemas import (
     BasicsUpdate, SkinIdentityUpdate, SkinStateUpdate,
     RoutineStateUpdate, LifestyleUpdate, PreferencesUpdate,
-    UserProfileOut, ProfileCompletenessOut,
+    UserProfileOut, ProfileCompletenessOut, InsightsResponse,
 )
 
 router = APIRouter()
@@ -73,6 +73,13 @@ async def update_lifestyle(data: LifestyleUpdate, user: AuthenticatedUser, db: D
 async def update_preferences(data: PreferencesUpdate, user: AuthenticatedUser, db: DbSession):
     """Save preferences section."""
     return await service.update_preferences(user, data, db)
+
+
+@router.get("/insights", response_model=InsightsResponse)
+async def get_insights(user: AuthenticatedUser, db: DbSession):
+    """Generate personalized skin insights and detailed skin score using Gemini."""
+    from .insights import generate_insights
+    return await generate_insights(user.id, db)
 
 
 @router.post("/complete-onboarding", response_model=UserProfileOut)

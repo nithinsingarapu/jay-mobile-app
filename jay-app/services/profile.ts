@@ -66,6 +66,32 @@ export interface ProfileCompleteness {
   onboarding_completed: boolean;
 }
 
+export interface SkinScore {
+  overall_score: number;
+  category_scores: { hydration: number; barrier: number; clarity: number; protection: number; consistency: number };
+  grade: string;
+  summary: string;
+  top_strength: string;
+  top_concern: string;
+  recommendations: string[];
+}
+
+export interface Insight {
+  id: string;
+  title: string;
+  description: string;
+  category: 'routine' | 'ingredient' | 'lifestyle' | 'concern' | 'achievement';
+  severity: 'positive' | 'neutral' | 'warning' | 'critical';
+  action: string | null;
+}
+
+export interface InsightsResponse {
+  skin_score: SkinScore;
+  insights: Insight[];
+  weekly_summary: string;
+  generated_at: string;
+}
+
 export const profileService = {
   getQuestionnaire: () =>
     apiFetch<Questionnaire>('/api/v1/profile/questionnaire', { noAuth: true }),
@@ -96,6 +122,9 @@ export const profileService = {
 
   completeOnboarding: () =>
     apiFetch<BackendProfile>('/api/v1/profile/complete-onboarding', { method: 'POST' }),
+
+  getInsights: () =>
+    apiFetch<InsightsResponse>('/api/v1/profile/insights'),
 };
 
 // Maps section ID to the correct service method

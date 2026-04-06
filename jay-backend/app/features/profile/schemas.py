@@ -128,3 +128,30 @@ class ProfileCompletenessOut(BaseModel):
     completeness: int
     sections: dict
     onboarding_completed: bool
+
+
+class SkinScoreOut(BaseModel):
+    overall_score: int  # 0-100
+    category_scores: dict  # {hydration, barrier, clarity, aging, consistency}
+    grade: str  # A, B, C, D, F
+    summary: str
+    top_strength: str
+    top_concern: str
+    recommendations: list[str]
+
+
+class InsightOut(BaseModel):
+    id: str
+    title: str
+    description: str
+    category: str  # routine, ingredient, lifestyle, concern, achievement
+    severity: str  # positive, neutral, warning, critical
+    action: str | None = None  # actionable next step
+    source: str | None = None  # what data this insight is based on
+
+
+class InsightsResponse(BaseModel):
+    skin_score: SkinScoreOut
+    insights: list[InsightOut]
+    weekly_summary: str
+    generated_at: str
