@@ -36,6 +36,11 @@ async def search_products(
     return await service.search_products(db, q, brand, category, min_price, max_price, limit, offset)
 
 
+@router.get("/{product_id}/dupes")
+async def get_dupes(product_id: int, db: DbSession, limit: int = Query(10, ge=1, le=30)):
+    return await service.find_dupes(db, product_id, limit)
+
+
 @router.get("/{product_id}", response_model=ProductOut)
 async def get_product(product_id: int, db: DbSession):
     product = await service.get_product_by_id(db, product_id)

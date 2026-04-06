@@ -69,6 +69,102 @@ _CATEGORY_SEARCH = {
 }
 
 
+async def find_dupes(
+    db: AsyncSession, product_id: int, limit: int = 10,
+) -> dict:
+    """Find product dupes based on key_ingredients overlap within the same category."""
+    from sqlalchemy import desc
+
+    # Get the original product
+    original = await get_product_by_id(db, product_id)
+    if not original or not original.key_ingredients:
+        return {"original": None, "dupes": [], "total_savings": 0}
+
+    orig_ingredients = set(i.lower() for i in original.key_ingredients)
+    orig_category = original.normalized_category or original.category
+
+    # Find all products in the same category (excluding the original)
+    stmt = (
+        select(Product)
+        .where(
+            Product.is_available == True,
+            Product.id != product_id,
+            Product.key_ingredients.isnot(None),
+        )
+    )
+    # Match by normalized_category or category
+    if orig_category:
+        stmt = stmt.where(
+            or_(
+                Product.normalized_category == orig_category,
+                Product.category == original.category,
+            )
+        )
+
+    result = await db.execute(stmt)
+    candidates = result.scalars().all()
+
+    # Calculate ingredient overlap for each candidate
+    scored = []
+    for p in candidates:
+        if not p.key_ingredients:
+            continue
+        p_ingredients = set(i.lower() for i in p.key_ingredients)
+        overlap = orig_ingredients & p_ingredients
+        if not overlap:
+            continue
+        match_pct = round(len(overlap) / len(orig_ingredients) * 100)
+        ingredient_match = round(len(overlap) / max(len(orig_ingredients), len(p_ingredients)) * 100)
+        scored.append({
+            "product": p,
+            "match_percent": match_pct,
+            "ingredient_match": ingredient_match,
+            "shared_ingredients": list(overlap),
+        })
+
+    # Sort by match_percent descending, then by price ascending (cheaper first)
+    scored.sort(key=lambda x: (-x["match_percent"], float(x["product"].price_inr or 9999)))
+
+    # Assign ranks
+    dupes = []
+    for i, item in enumerate(scored[:limit]):
+        p = item["product"]
+        rank = "BEST MATCH" if i == 0 else ("STRONG" if i < 3 else "GOOD")
+        dupes.append({
+            "id": p.id,
+            "name": p.name,
+            "brand": p.brand,
+            "price": float(p.price_inr) if p.price_inr else 0,
+            "image_url": p.image_url,
+            "rating": float(p.rating) if p.rating else None,
+            "review_count": p.review_count,
+            "match_percent": item["match_percent"],
+            "ingredient_match": item["ingredient_match"],
+            "shared_ingredients": item["shared_ingredients"],
+            "rank": rank,
+            "key_ingredients": p.key_ingredients,
+        })
+
+    orig_price = float(original.price_inr) if original.price_inr else 0
+    best_dupe_price = dupes[0]["price"] if dupes else orig_price
+    total_savings = max(0, orig_price - best_dupe_price)
+
+    return {
+        "original": {
+            "id": original.id,
+            "name": original.name,
+            "brand": original.brand,
+            "price": orig_price,
+            "image_url": original.image_url,
+            "key_ingredients": original.key_ingredients,
+            "rating": float(original.rating) if original.rating else None,
+            "review_count": original.review_count,
+        },
+        "dupes": dupes,
+        "total_savings": total_savings,
+    }
+
+
 async def search_for_routine_step(
     db: AsyncSession, category: str, budget: float | None = None,
     exclude_ingredients: list[str] | None = None, skin_type: str | None = None,

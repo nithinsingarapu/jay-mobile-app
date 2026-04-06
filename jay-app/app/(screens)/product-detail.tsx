@@ -299,7 +299,7 @@ export default function ProductDetailScreen() {
           {activeTab === 1 && <IngredientsTab product={product} mock={mock} />}
           {activeTab === 2 && <PricesTab mock={mock} />}
           {activeTab === 3 && <ExpertsTab mock={mock} />}
-          {activeTab === 4 && <AlternativesTab mock={mock} />}
+          {activeTab === 4 && <AlternativesTab productId={product.id} />}
         </View>
       </ScrollView>
     </View>

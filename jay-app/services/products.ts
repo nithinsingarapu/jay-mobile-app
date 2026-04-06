@@ -35,4 +35,21 @@ export const productService = {
     apiFetch<{ status: string; error?: string; price?: number; rating?: number; review_count?: number; image?: string; source?: string }>(
       `/api/v1/products/${id}/enrich`, { method: 'POST' },
     ),
+
+  getDupes: (id: number, limit?: number) =>
+    apiFetch<{
+      original: {
+        id: number; name: string; brand: string; price: number;
+        image_url: string | null; key_ingredients: string[];
+        rating: number | null; review_count: number | null;
+      } | null;
+      dupes: {
+        id: number; name: string; brand: string; price: number;
+        image_url: string | null; rating: number | null;
+        review_count: number | null; match_percent: number;
+        ingredient_match: number; shared_ingredients: string[];
+        rank: string; key_ingredients: string[];
+      }[];
+      total_savings: number;
+    }>(`/api/v1/products/${id}/dupes?limit=${limit ?? 10}`, { noAuth: true }),
 };
