@@ -281,6 +281,22 @@ export default function ProductDetailScreen() {
           </Pressable>
         </View>
 
+        {/* Full Research button */}
+        <View style={styles.enrichRow}>
+          <Pressable
+            onPress={() => router.push({
+              pathname: '/(screens)/research',
+              params: { productId: String(product.id), productName: product.name },
+            } as any)}
+            style={[styles.enrichBtn, { backgroundColor: colors.systemIndigo + '15' }]}
+          >
+            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={colors.systemIndigo} strokeWidth={2} strokeLinecap="round">
+              <Path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+            </Svg>
+            <Text style={[styles.enrichBtnText, { color: colors.systemIndigo }]}>Full Research Report</Text>
+          </Pressable>
+        </View>
+
         {/* Score Banner */}
         <View style={styles.scoreBannerWrap}>
           <ScoreBanner

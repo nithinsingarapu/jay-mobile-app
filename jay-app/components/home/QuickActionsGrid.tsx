@@ -7,7 +7,7 @@ import { useTheme } from '../../lib/theme';
 const actions = [
   { id: 'ask-jay', label: 'Ask JAY', route: '/(tabs)/jay', icon: 'chat' },
   { id: 'scan', label: 'Scan', route: '/(screens)/routine', icon: 'scan' },
-  { id: 'research', label: 'Research', route: '/(screens)/research/cerave', icon: 'flask' },
+  { id: 'research', label: 'Research', route: '/(screens)/research', icon: 'flask' },
   { id: 'dupes', label: 'Dupes', route: '/(screens)/dupe-finder', icon: 'swap' },
   { id: 'routine', label: 'Routine', route: '/(screens)/routine', icon: 'clock' },
   { id: 'insights', label: 'Insights', route: '/(screens)/intelligence', icon: 'chart' },
