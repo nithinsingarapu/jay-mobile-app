@@ -366,15 +366,43 @@ async def run_research(product_name: str, product_id: int | None, db: AsyncSessi
     rid = research.id
 
     try:
-        # ── STAGE 1: Identify (Gemini + GoogleSearch) ─────────
+        # ── STAGE 1: Identify ─────────────────────────────────
         await _update_research(rid, current_stage="identify")
-        logger.info(f"[Research #{rid}] Stage 1: Identifying '{product_name}'...")
-        s1_raw = await _research_with_search(
-            STAGE1_SYSTEM,
-            f'Identify this product: "{product_name}". Search official website, Amazon, INCIDecoder.',
-            max_tokens=4096, stage="identify",
-        )
-        product_data = _parse_json(s1_raw)
+        product_data = None
+
+        # Fast path: if we have product_id, use our DB data (skip Gemini search)
+        if product_id:
+            from app.features.products.models import Product
+            prod_result = await db.execute(select(Product).where(Product.id == product_id))
+            prod = prod_result.scalar_one_or_none()
+            if prod and prod.name:
+                logger.info(f"[Research #{rid}] Stage 1: Using DB product data (fast path)")
+                product_data = {
+                    "found": True,
+                    "product_name": f"{prod.brand} {prod.name}" if prod.brand else prod.name,
+                    "brand": prod.brand or "",
+                    "parent_company": "",
+                    "category": prod.category or prod.normalized_category or "",
+                    "format": prod.texture or "",
+                    "price": {"amount": float(prod.price_inr) if prod.price_inr else 0, "currency": "INR", "size": ""},
+                    "primary_market": "India",
+                    "target_skin_type": "",
+                    "inci_list": ", ".join(prod.key_ingredients or []),
+                    "key_claims": [],
+                    "certifications": [],
+                    "notes": "Product data from JAY database.",
+                }
+
+        # Slow path: Gemini + GoogleSearch identification
+        if not product_data:
+            logger.info(f"[Research #{rid}] Stage 1: Identifying '{product_name}' via Gemini...")
+            s1_raw = await _research_with_search(
+                STAGE1_SYSTEM,
+                f'Identify this product: "{product_name}". Search official website, Amazon, INCIDecoder.',
+                max_tokens=4096, stage="identify",
+            )
+            product_data = _parse_json(s1_raw)
+
         if not product_data or not product_data.get("found", False):
             await _update_research(rid, status="failed", current_stage="failed",
                                    error_message="Could not identify product",
