@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://localhost:5432/jay"
     serper_api_key: str = ""
     groq_api_key: str = ""
+    tavily_api_key: str = ""
     debug: bool = True
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
