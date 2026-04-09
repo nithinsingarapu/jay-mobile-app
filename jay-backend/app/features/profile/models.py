@@ -55,5 +55,8 @@ class UserProfile(Base):
     )
     profile_completeness: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Cached insights (regenerated every 12 hours)
+    cached_insights: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)

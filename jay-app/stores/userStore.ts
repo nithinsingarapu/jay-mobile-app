@@ -120,10 +120,22 @@ export const useUserStore = create<UserState>((set, get) => ({
     set({ profileLoading: true });
     try {
       const profile = await profileService.getProfile();
+      const displayData = profileToDisplayData(profile, authUser);
+
+      // Load skin score from insights (cached, fast)
+      try {
+        const insights = await profileService.getInsights();
+        if (insights?.skin_score?.overall_score) {
+          displayData.skinScore = insights.skin_score.overall_score;
+        }
+      } catch {
+        // Insights unavailable — keep skinScore from profile completeness
+      }
+
       set({
         backendProfile: profile,
         onboardingComplete: profile.onboarding_completed,
-        user: profileToDisplayData(profile, authUser),
+        user: displayData,
         profileLoading: false,
       });
     } catch {

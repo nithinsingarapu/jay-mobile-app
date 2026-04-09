@@ -79,23 +79,28 @@ export default function HomeScreen() {
       {/* ── Environment Bar ──────────────────────────────────── */}
       <EnvironmentBar />
 
-      {/* ── Profile Health Card ─────────────────────────────── */}
-      <View style={[$.card, { backgroundColor: colors.secondarySystemBackground }]}>
+      {/* ── Skin Health Card ──────────────────────────────────── */}
+      <Pressable
+        onPress={() => router.push('/(screens)/intelligence' as any)}
+        style={[$.card, { backgroundColor: colors.secondarySystemBackground }]}
+      >
         {profileLoading ? (
           <Text style={[$.cardHint, { color: colors.tertiaryLabel }]}>Loading your profile...</Text>
         ) : (
           <View style={$.cardInner}>
-            <ScoreRing score={user.profileCompleteness} size={60} />
+            <ScoreRing score={user.skinScore} size={60} />
             <View style={{ flex: 1 }}>
-              <Text style={[$.cardOverline, { color: colors.secondaryLabel }]}>PROFILE HEALTH</Text>
+              <Text style={[$.cardOverline, { color: colors.secondaryLabel }]}>SKIN HEALTH</Text>
               <Text style={[$.cardTitle, { color: colors.label }]}>
-                {user.profileCompleteness >= 70 ? 'Looking great!' : user.profileCompleteness >= 30 ? 'Getting there' : 'Just getting started'}
+                {user.skinScore >= 70 ? 'Looking great!' : user.skinScore >= 50 ? 'Getting there' : user.skinScore > 0 ? 'Room to improve' : 'Complete your profile'}
               </Text>
-              <Text style={[$.cardSub, { color: colors.tertiaryLabel }]}>{user.profileCompleteness}% complete · {user.level}</Text>
+              <Text style={[$.cardSub, { color: colors.tertiaryLabel }]}>
+                {user.skinScore > 0 ? `${user.skinScore}/100 · ${user.level}` : `${user.profileCompleteness}% profile · ${user.level}`}
+              </Text>
             </View>
           </View>
         )}
-      </View>
+      </Pressable>
 
       {/* ── Streak Card (if streak > 0) ─────────────────────── */}
       {routineStore.streak.current_streak > 0 ? (
