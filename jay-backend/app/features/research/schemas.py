@@ -23,6 +23,7 @@ class ResearchOut(BaseModel):
     product_name: str
     brand: str | None = None
     status: str
+    current_stage: str | None = None
     product_data: dict | None = None
     ingredients_analysis: str | None = None
     review_synthesis: str | None = None
@@ -47,6 +48,7 @@ class ResearchStatusOut(BaseModel):
     id: int
     product_name: str
     status: str
+    current_stage: str | None = None
     created_at: datetime | None = None
 
     model_config = {"from_attributes": True}

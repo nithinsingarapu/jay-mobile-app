@@ -201,22 +201,31 @@ def _parse_report_card(text: str) -> dict | None:
 
 
 async def run_research(product_name: str, product_id: int | None, db: AsyncSession) -> ProductResearch:
-    """Run the full 3-stage research pipeline and store results."""
+    """Run the full 3-stage research pipeline. Commits after EACH branch so frontend can poll partial results."""
     start = time.time()
 
-    # Create DB record
-    research = ProductResearch(
-        product_name=product_name,
-        product_id=product_id,
-        status="running",
-        model_used="gemini-2.5-flash",
+    # Get existing record (created by router)
+    from sqlalchemy import select as sa_select
+    result = await db.execute(
+        sa_select(ProductResearch).where(
+            ProductResearch.product_name == product_name,
+            ProductResearch.status.in_(["pending", "running"]),
+        ).order_by(ProductResearch.id.desc()).limit(1)
     )
-    db.add(research)
-    await db.commit()
-    await db.refresh(research)
+    research = result.scalar_one_or_none()
+    if not research:
+        research = ProductResearch(product_name=product_name, product_id=product_id, status="running", model_used="gemini-2.5-flash")
+        db.add(research)
+        await db.commit()
+        await db.refresh(research)
+
+    async def _save(stage: str):
+        research.current_stage = stage
+        await db.commit()
 
     try:
-        # ── Stage 1: Identify product ────────────────────────────
+        # ── Stage 1: Identify ─────────────────────────────────
+        await _save("identify")
         logger.info(f"[Research #{research.id}] Stage 1: Identifying '{product_name}'...")
         s1_raw = await _research(
             STAGE1_SYSTEM,
@@ -226,6 +235,7 @@ async def run_research(product_name: str, product_id: int | None, db: AsyncSessi
         product_data = _parse_json(s1_raw)
         if not product_data or not product_data.get("found", False):
             research.status = "failed"
+            research.current_stage = "failed"
             research.error_message = "Could not identify product"
             research.product_data = product_data
             await db.commit()
@@ -233,6 +243,8 @@ async def run_research(product_name: str, product_id: int | None, db: AsyncSessi
 
         research.product_data = product_data
         research.brand = product_data.get("brand")
+        await _save("identified")
+
         pname = product_data.get("product_name", product_name)
         inci = product_data.get("inci_list", "")
         brand = product_data.get("brand", "")
@@ -242,32 +254,40 @@ async def run_research(product_name: str, product_id: int | None, db: AsyncSessi
         category = product_data.get("category", "")
         parent = product_data.get("parent_company", "")
 
-        # ── Stage 2: Parallel research ───────────────────────────
+        # ── Stage 2: Parallel branches (save each as it completes) ──
         logger.info(f"[Research #{research.id}] Stage 2: Running 5 parallel branches...")
+        await _save("researching")
 
-        results = await asyncio.gather(
-            _research(STAGE2A_SYSTEM, f"Product: {pname}\nCategory: {category}\nINCI: {inci}\nAnalyze all ingredients.", max_tokens=16384, stage="ingredients"),
-            _research(STAGE2B_SYSTEM, f"Product: {pname}\nBrand: {brand}\nMarket: {market}\nSearch reviews on Amazon, Reddit, {'Nykaa' if market == 'India' else 'Sephora'}.", max_tokens=16384, stage="reviews"),
-            _research(STAGE2C_SYSTEM, f"Product: {pname}\nBrand: {brand}\nKey ingredients: {inci[:300]}\nSearch for derm/expert reviews.", max_tokens=16384, stage="experts"),
-            _research(STAGE2D_SYSTEM, f"Brand: {brand}\nParent: {parent}\nResearch brand history, reputation, controversies.", max_tokens=16384, stage="brand"),
-            _research(STAGE2E_SYSTEM, f"Product: {pname}\nBrand: {brand}\nCategory: {category}\nPrice: {price}\nMarket: {market}\nClaims: {chr(10).join(claims)}\nVerify claims, find alternatives.", max_tokens=16384, stage="claims"),
+        async def _run_branch(key: str, system: str, prompt: str):
+            await _save(key)
+            result = await _research(system, prompt, max_tokens=16384, stage=key)
+            setattr(research, {
+                "ingredients": "ingredients_analysis",
+                "reviews": "review_synthesis",
+                "experts": "expert_reviews",
+                "brand": "brand_intelligence",
+                "claims": "claims_alternatives",
+            }[key], result)
+            await db.commit()  # Save this branch immediately
+            logger.info(f"  [{key}] done ({len(result)} chars)")
+            return result
+
+        branch_results = await asyncio.gather(
+            _run_branch("ingredients", STAGE2A_SYSTEM, f"Product: {pname}\nCategory: {category}\nINCI: {inci}\nAnalyze all ingredients."),
+            _run_branch("reviews", STAGE2B_SYSTEM, f"Product: {pname}\nBrand: {brand}\nMarket: {market}\nSearch reviews on Amazon, Reddit, {'Nykaa' if market == 'India' else 'Sephora'}."),
+            _run_branch("experts", STAGE2C_SYSTEM, f"Product: {pname}\nBrand: {brand}\nKey ingredients: {inci[:300]}\nSearch for derm/expert reviews."),
+            _run_branch("brand", STAGE2D_SYSTEM, f"Brand: {brand}\nParent: {parent}\nResearch brand history, reputation, controversies."),
+            _run_branch("claims", STAGE2E_SYSTEM, f"Product: {pname}\nBrand: {brand}\nCategory: {category}\nPrice: {price}\nMarket: {market}\nClaims: {chr(10).join(claims)}\nVerify claims, find alternatives."),
         )
 
-        research.ingredients_analysis = results[0]
-        research.review_synthesis = results[1]
-        research.expert_reviews = results[2]
-        research.brand_intelligence = results[3]
-        research.claims_alternatives = results[4]
-
-        # ── Stage 3: Overlay (TL;DR + Usage + Report Card) ──────
+        # ── Stage 3: Overlay ──────────────────────────────────
+        await _save("compiling")
         logger.info(f"[Research #{research.id}] Stage 3: Generating overlay...")
 
-        # Build context excerpt (head+tail of each branch)
         ctx_parts = [f"PRODUCT: {json.dumps(product_data, indent=2)[:3000]}"]
-        for label, text in [("INGREDIENTS", results[0]), ("REVIEWS", results[1]),
-                           ("EXPERTS", results[2]), ("BRAND", results[3]), ("CLAIMS", results[4])]:
-            t = (text or "")[:4000]
-            ctx_parts.append(f"\n━━━ {label} ━━━\n{t}")
+        for label, text in [("INGREDIENTS", branch_results[0]), ("REVIEWS", branch_results[1]),
+                           ("EXPERTS", branch_results[2]), ("BRAND", branch_results[3]), ("CLAIMS", branch_results[4])]:
+            ctx_parts.append(f"\n━━━ {label} ━━━\n{(text or '')[:4000]}")
         context = "\n".join(ctx_parts)
 
         overlay = await _research(
@@ -276,7 +296,6 @@ async def run_research(product_name: str, product_id: int | None, db: AsyncSessi
             max_tokens=8192, stage="overlay",
         )
 
-        # Parse overlay sections
         tldr, sec7, sec8 = "", "", ""
         m7 = re.search(r"(?m)^## 7\.\s*", overlay)
         m8 = re.search(r"(?m)^## 8\.\s*", overlay)
@@ -289,19 +308,18 @@ async def run_research(product_name: str, product_id: int | None, db: AsyncSessi
 
         research.tldr = tldr
         research.usage_protocol = sec7
-        report_card_scores = _parse_report_card(sec8)
-        research.report_card = report_card_scores
+        research.report_card = _parse_report_card(sec8)
 
-        # Assemble full markdown report
+        # Assemble full markdown
         report_parts = [
             f"# JAY Research — {pname}\n",
             f"## TL;DR\n{tldr}\n" if tldr else "",
             f"## 1. Product & Brand Intelligence\n```json\n{json.dumps(product_data, indent=2)}\n```\n",
-            f"### Brand Intelligence\n{results[3]}\n" if results[3] else "",
-            f"## 2. Ingredient Analysis\n{results[0]}\n" if results[0] else "",
-            f"## 3. User Review Synthesis\n{results[1]}\n" if results[1] else "",
-            f"## 4. Expert & Dermatologist Reviews\n{results[2]}\n" if results[2] else "",
-            f"## 5. Claims Verification & Alternatives\n{results[4]}\n" if results[4] else "",
+            f"### Brand Intelligence\n{branch_results[3]}\n" if branch_results[3] else "",
+            f"## 2. Ingredient Analysis\n{branch_results[0]}\n" if branch_results[0] else "",
+            f"## 3. User Review Synthesis\n{branch_results[1]}\n" if branch_results[1] else "",
+            f"## 4. Expert & Dermatologist Reviews\n{branch_results[2]}\n" if branch_results[2] else "",
+            f"## 5. Claims Verification & Alternatives\n{branch_results[4]}\n" if branch_results[4] else "",
             f"{sec7}\n" if sec7 else "",
             f"{sec8}\n" if sec8 else "",
         ]
@@ -310,11 +328,13 @@ async def run_research(product_name: str, product_id: int | None, db: AsyncSessi
         elapsed = time.time() - start
         research.duration_seconds = round(elapsed, 1)
         research.status = "completed"
+        research.current_stage = "done"
         logger.info(f"[Research #{research.id}] Completed in {elapsed:.0f}s")
 
     except Exception as e:
         logger.error(f"[Research #{research.id}] Failed: {e}")
         research.status = "failed"
+        research.current_stage = "failed"
         research.error_message = str(e)
 
     await db.commit()

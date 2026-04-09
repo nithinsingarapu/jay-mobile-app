@@ -4,6 +4,7 @@ export interface ResearchStatus {
   id: number;
   product_name: string;
   status: 'pending' | 'running' | 'completed' | 'failed';
+  current_stage: string | null;
   created_at: string | null;
 }
 
@@ -23,6 +24,7 @@ export interface ResearchReport {
   product_name: string;
   brand: string | null;
   status: string;
+  current_stage: string | null;
   product_data: Record<string, any> | null;
   ingredients_analysis: string | null;
   review_synthesis: string | null;

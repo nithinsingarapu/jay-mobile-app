@@ -35,6 +35,7 @@ class ProductResearch(Base):
 
     # Status
     status: Mapped[str] = mapped_column(String(20), default="pending")  # pending, running, completed, failed
+    current_stage: Mapped[str | None] = mapped_column(String(50), nullable=True)  # identify, ingredients, reviews, experts, brand, claims, overlay, done
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Metadata
