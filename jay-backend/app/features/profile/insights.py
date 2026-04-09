@@ -294,7 +294,7 @@ Output ONLY valid JSON, no markdown."""
                 "top_concern": data.get("top_concern", ""),
                 "recommendations": data.get("recommendations", []),
             },
-            "insights": data.get("insights", []),
+            "insights": [{**i, "id": str(i.get("id", idx))} for idx, i in enumerate(data.get("insights", []))],
             "weekly_summary": data.get("weekly_summary", ""),
             "generated_at": now,
         }
