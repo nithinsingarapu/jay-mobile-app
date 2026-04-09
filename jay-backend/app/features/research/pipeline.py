@@ -63,13 +63,67 @@ async def _research_with_search(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# GEMINI CALL — WITHOUT search (for Tavily-backed branches + Stage 3)
+# GROQ — FAST SYNTHESIS (for Tavily-backed branches + Stage 3)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-async def _research_no_search(
+async def _groq_synthesize(
+    system_prompt: str, user_prompt: str, max_tokens: int = 8192, stage: str = "",
+) -> str:
+    """Ultra-fast synthesis via Groq llama-3.3-70b. ~2-5s vs 30-60s for Gemini."""
+    import httpx
+    settings = get_settings()
+    if not settings.groq_api_key:
+        logger.warning(f"  [{stage}] No GROQ_API_KEY, falling back to Gemini")
+        return await _research_no_search_gemini(system_prompt, user_prompt, max_tokens, stage)
+
+    # Groq max is 32768 tokens output for versatile model
+    groq_max = min(max_tokens, 32000)
+
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient(timeout=120) as client:
+                resp = await client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    json={
+                        "model": "llama-3.3-70b-versatile",
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        "temperature": 0.4,
+                        "max_tokens": groq_max,
+                    },
+                    headers={
+                        "Authorization": f"Bearer {settings.groq_api_key}",
+                        "Content-Type": "application/json",
+                    },
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                text = data["choices"][0]["message"]["content"]
+                if text.strip():
+                    return text
+        except Exception as e:
+            if "429" in str(e) or "rate" in str(e).lower():
+                wait = 2 ** (attempt + 1)
+                logger.warning(f"  [{stage}] Groq rate limited, waiting {wait}s...")
+                import asyncio as aio
+                await aio.sleep(wait)
+            elif attempt < 2:
+                logger.warning(f"  [{stage}] Groq error: {e}, retrying...")
+                import asyncio as aio
+                await aio.sleep(1)
+            else:
+                logger.warning(f"  [{stage}] Groq failed, falling back to Gemini: {e}")
+                return await _research_no_search_gemini(system_prompt, user_prompt, max_tokens, stage)
+
+    return await _research_no_search_gemini(system_prompt, user_prompt, max_tokens, stage)
+
+
+async def _research_no_search_gemini(
     system_prompt: str, user_prompt: str, max_tokens: int = 16384, stage: str = "",
 ) -> str:
-    """Gemini call WITHOUT search tool — pure synthesis from provided context."""
+    """Gemini call WITHOUT search tool — fallback when Groq unavailable."""
     from google.genai import types
     client = _get_client()
     config = types.GenerateContentConfig(
@@ -147,8 +201,8 @@ async def _research_with_tavily(
     """
     1. Tavily parallel search
     2. Format as context block
-    3. Inject into Gemini (no search tool)
-    4. Fallback to Gemini+GoogleSearch if Tavily empty
+    3. Inject into Groq for fast synthesis (fallback: Gemini)
+    4. Fallback to Gemini+GoogleSearch if Tavily returns nothing
     """
     from .tavily_client import tavily_multi, format_context
 
@@ -163,7 +217,8 @@ async def _research_with_tavily(
             f"━━━ END RESEARCH ━━━\n\n"
             f"Use the research results above to ground your analysis. Cite sources by URL."
         )
-        return await _research_no_search(system_prompt, augmented, max_tokens, stage)
+        # Groq for fast synthesis (Tavily provides all the data)
+        return await _groq_synthesize(system_prompt, augmented, max_tokens, stage)
     else:
         logger.warning(f"  [{stage}] Tavily empty, falling back to Gemini+GoogleSearch")
         return await _research_with_search(system_prompt, user_prompt, max_tokens, stage)
@@ -418,7 +473,8 @@ async def run_research(product_name: str, product_id: int | None, db: AsyncSessi
         for label, text in zip(["INGREDIENTS","REVIEWS","EXPERTS","BRAND","CLAIMS"], branch_results):
             ctx_parts.append(f"\n━━━ {label} ━━━\n{(text or '')[:4000]}")
 
-        overlay = await _research_no_search(
+        # Groq for fast overlay synthesis (no search needed — pure synthesis)
+        overlay = await _groq_synthesize(
             STAGE3_OVERLAY_SYSTEM,
             f"Product: {pname}\n\nResearch excerpts:\n{''.join(ctx_parts)}\n\nWrite TL;DR, §7 Usage, §8 Report Card.",
             max_tokens=8192, stage="overlay",
