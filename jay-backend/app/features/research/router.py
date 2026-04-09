@@ -106,13 +106,28 @@ async def _run_pipeline_bg(research_id: int, product_name: str, product_id: int 
     """Background task to run the research pipeline."""
     from .pipeline import run_research
     async with async_session_factory() as db:
-        # Update status to running
+        # Enrich product name with brand from our DB if we have a product_id
+        full_name = product_name
+        if product_id:
+            from app.features.products.models import Product
+            prod = await db.execute(select(Product).where(Product.id == product_id))
+            product = prod.scalar_one_or_none()
+            if product:
+                brand = product.brand or ""
+                name = product.name or product_name
+                # Ensure brand is included in the name for Gemini
+                if brand and brand.lower() not in name.lower():
+                    full_name = f"{brand} {name}"
+                else:
+                    full_name = name
+
+        # Update status + enriched name
         result = await db.execute(select(ProductResearch).where(ProductResearch.id == research_id))
         research = result.scalar_one_or_none()
         if not research:
             return
         research.status = "running"
+        research.product_name = full_name
         await db.commit()
 
-        # Run the actual pipeline (this takes 2-5 minutes)
-        await run_research(product_name, product_id, db)
+        await run_research(full_name, product_id, db)

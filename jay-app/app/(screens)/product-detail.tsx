@@ -286,7 +286,7 @@ export default function ProductDetailScreen() {
           <Pressable
             onPress={() => router.push({
               pathname: '/(screens)/research',
-              params: { productId: String(product.id), productName: product.name },
+              params: { productId: String(product.id), productName: `${product.brand} ${product.name}` },
             } as any)}
             style={[styles.enrichBtn, { backgroundColor: colors.systemIndigo + '15' }]}
           >
