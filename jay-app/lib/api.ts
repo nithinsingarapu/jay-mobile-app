@@ -1,6 +1,24 @@
 import { supabase } from './supabase';
+import Constants from 'expo-constants';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
+// Auto-detect API URL: use env var if set, otherwise derive from Expo dev server IP
+function getApiUrl(): string {
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+    return envUrl;
+  }
+  // In dev, Expo knows the host IP — reuse it for the backend
+  const hostUri = Constants.expoConfig?.hostUri || Constants.manifest?.debuggerHost;
+  if (hostUri) {
+    const ip = hostUri.split(':')[0];
+    if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
+      return `http://${ip}:8000`;
+    }
+  }
+  return envUrl || 'http://localhost:8000';
+}
+
+const API_URL = getApiUrl();
 const REQUEST_TIMEOUT_MS = 60000; // 60s — AI generation can take 20-30s
 
 let _tokenOverride: string | null = null;
