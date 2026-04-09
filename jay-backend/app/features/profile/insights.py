@@ -238,6 +238,9 @@ async def generate_insights(user_id: str, db: AsyncSession) -> dict:
             try:
                 gen_time = datetime.fromisoformat(generated_at)
                 if datetime.now(timezone.utc) - gen_time < timedelta(hours=CACHE_TTL_HOURS):
+                    # Sanitize cached insight IDs to strings
+                    for i, insight in enumerate(cached.get("insights", [])):
+                        insight["id"] = str(insight.get("id", i))
                     logger.info(f"[Insights] Returning cached insights for {user_id}")
                     return cached
             except (ValueError, TypeError):
