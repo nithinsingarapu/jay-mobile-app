@@ -76,8 +76,14 @@ async def _groq_synthesize(
         logger.warning(f"  [{stage}] No GROQ_API_KEY, falling back to Gemini")
         return await _research_no_search_gemini(system_prompt, user_prompt, max_tokens, stage)
 
-    # Groq max is 32768 tokens output for versatile model
-    groq_max = min(max_tokens, 32000)
+    # Truncate input to avoid 413 Payload Too Large (Groq ~128K context, ~4 chars/token)
+    max_input_chars = 80000
+    if len(user_prompt) > max_input_chars:
+        user_prompt = user_prompt[:max_input_chars] + "\n\n[Context truncated for length]"
+    if len(system_prompt) > 4000:
+        system_prompt = system_prompt[:4000]
+
+    groq_max = min(max_tokens, 8000)  # Keep output reasonable for speed
 
     for attempt in range(3):
         try:
