@@ -273,8 +273,19 @@ FIELD_MAP = {
 }
 
 
+async def _update_research(research_id: int, **kwargs):
+    """Update research record in its own session (safe for concurrent use)."""
+    from app.database import async_session_factory
+    async with async_session_factory() as session:
+        from sqlalchemy import update
+        await session.execute(
+            update(ProductResearch).where(ProductResearch.id == research_id).values(**kwargs)
+        )
+        await session.commit()
+
+
 async def run_research(product_name: str, product_id: int | None, db: AsyncSession) -> ProductResearch:
-    """Hybrid Tavily+Gemini research pipeline. Commits after each branch for progressive loading."""
+    """Hybrid Tavily+Gemini pipeline. Each branch saves via its own DB session to avoid concurrent commit crashes."""
     start = time.time()
 
     from sqlalchemy import select as sa_select
@@ -291,14 +302,12 @@ async def run_research(product_name: str, product_id: int | None, db: AsyncSessi
         await db.commit()
         await db.refresh(research)
 
-    async def _save(stage: str):
-        research.current_stage = stage
-        await db.commit()
+    rid = research.id
 
     try:
         # ── STAGE 1: Identify (Gemini + GoogleSearch) ─────────
-        await _save("identify")
-        logger.info(f"[Research #{research.id}] Stage 1: Identifying '{product_name}'...")
+        await _update_research(rid, current_stage="identify")
+        logger.info(f"[Research #{rid}] Stage 1: Identifying '{product_name}'...")
         s1_raw = await _research_with_search(
             STAGE1_SYSTEM,
             f'Identify this product: "{product_name}". Search official website, Amazon, INCIDecoder.',
@@ -306,16 +315,13 @@ async def run_research(product_name: str, product_id: int | None, db: AsyncSessi
         )
         product_data = _parse_json(s1_raw)
         if not product_data or not product_data.get("found", False):
-            research.status = "failed"
-            research.current_stage = "failed"
-            research.error_message = "Could not identify product"
-            research.product_data = product_data
-            await db.commit()
+            await _update_research(rid, status="failed", current_stage="failed",
+                                   error_message="Could not identify product",
+                                   product_data=product_data)
             return research
 
-        research.product_data = product_data
-        research.brand = product_data.get("brand")
-        await _save("identified")
+        await _update_research(rid, product_data=product_data, brand=product_data.get("brand"),
+                               current_stage="identified")
 
         pname = product_data.get("product_name", product_name)
         inci = product_data.get("inci_list", "")
@@ -327,29 +333,25 @@ async def run_research(product_name: str, product_id: int | None, db: AsyncSessi
         parent = product_data.get("parent_company", "")
 
         # ── STAGE 2: 5 parallel branches ──────────────────────
-        await _save("researching")
-        logger.info(f"[Research #{research.id}] Stage 2: 5 parallel branches (hybrid Tavily+Gemini)...")
+        await _update_research(rid, current_stage="researching")
+        logger.info(f"[Research #{rid}] Stage 2: 5 parallel branches...")
 
-        # --- 2A: Ingredients (Gemini + GoogleSearch) ---
         async def _branch_ingredients():
-            await _save("ingredients")
             r = await _research_with_search(
                 STAGE2A_SYSTEM,
                 f"Product: {pname}\nCategory: {category}\nINCI: {inci}\nAnalyze all ingredients.",
                 max_tokens=16384, stage="ingredients",
             )
-            research.ingredients_analysis = r
-            await db.commit()
+            await _update_research(rid, ingredients_analysis=r)
+            logger.info(f"  [ingredients] done ({len(r)} chars)")
             return r
 
-        # --- 2B: Reviews (Tavily → Gemini) ---
         async def _branch_reviews():
-            await _save("reviews")
             nykaa = "nykaa.com" if market == "India" else "sephora.com"
             queries = [
                 {"key": "amazon", "query": f'"{pname}" review', "max": 5, "domains": ["amazon.in", "amazon.com"]},
-                {"key": "reddit", "query": f'"{pname}" review experience skincare', "max": 5, "domains": ["reddit.com"]},
-                {"key": "beauty", "query": f'"{pname}" review', "max": 3, "domains": [nykaa, "makeupalley.com", "influenster.com"]},
+                {"key": "reddit", "query": f'"{pname}" review experience', "max": 5, "domains": ["reddit.com"]},
+                {"key": "beauty", "query": f'"{pname}" review', "max": 3, "domains": [nykaa, "makeupalley.com"]},
                 {"key": "youtube", "query": f'"{pname}" honest review', "max": 3, "domains": ["youtube.com"]},
             ]
             r = await _research_with_tavily(
@@ -357,84 +359,71 @@ async def run_research(product_name: str, product_id: int | None, db: AsyncSessi
                 f"Product: {pname}\nBrand: {brand}\nMarket: {market}\nSynthesize user reviews.",
                 tavily_queries=queries, max_tokens=16384, stage="reviews", context_budget=10000,
             )
-            research.review_synthesis = r
-            await db.commit()
+            await _update_research(rid, review_synthesis=r)
+            logger.info(f"  [reviews] done ({len(r)} chars)")
             return r
 
-        # --- 2C: Experts (Tavily → Gemini) ---
         async def _branch_experts():
-            await _save("experts")
             top_actives = " ".join(inci.split(",")[:5]) if inci else pname
             queries = [
                 {"key": "derm", "query": f'"{pname}" dermatologist review', "max": 5, "domains": ["youtube.com"]},
-                {"key": "expert", "query": f'"{pname}" expert dermatologist opinion review', "max": 5},
-                {"key": "pubmed", "query": f'{top_actives} skin clinical study', "max": 3, "domains": ["pubmed.ncbi.nlm.nih.gov", "ncbi.nlm.nih.gov"]},
+                {"key": "expert", "query": f'"{pname}" expert opinion review', "max": 5},
+                {"key": "pubmed", "query": f'{top_actives} skin clinical study', "max": 3, "domains": ["pubmed.ncbi.nlm.nih.gov"]},
             ]
             r = await _research_with_tavily(
                 STAGE2C_SYSTEM,
                 f"Product: {pname}\nBrand: {brand}\nKey ingredients: {inci[:300]}\nAnalyze expert reviews.",
                 tavily_queries=queries, max_tokens=16384, stage="experts", context_budget=8000,
             )
-            research.expert_reviews = r
-            await db.commit()
+            await _update_research(rid, expert_reviews=r)
+            logger.info(f"  [experts] done ({len(r)} chars)")
             return r
 
-        # --- 2D: Brand (Gemini + GoogleSearch) ---
         async def _branch_brand():
-            await _save("brand")
             r = await _research_with_search(
                 STAGE2D_SYSTEM,
                 f"Brand: {brand}\nParent: {parent}\nResearch brand history, reputation, controversies.",
                 max_tokens=16384, stage="brand",
             )
-            research.brand_intelligence = r
-            await db.commit()
+            await _update_research(rid, brand_intelligence=r)
+            logger.info(f"  [brand] done ({len(r)} chars)")
             return r
 
-        # --- 2E: Claims (Tavily → Gemini) ---
         async def _branch_claims():
-            await _save("claims")
-            claims_text = ", ".join(claims[:5]) if claims else f"{pname} claims"
+            claims_text = ", ".join(claims[:5]) if claims else pname
             queries = [
-                {"key": "evidence", "query": f'"{pname}" {claims_text} evidence clinical study', "max": 5},
+                {"key": "evidence", "query": f'"{pname}" {claims_text} evidence', "max": 5},
                 {"key": "alternatives", "query": f'best {category} alternative to "{pname}" {market}', "max": 5},
-                {"key": "comparison", "query": f'"{pname}" vs comparison review {category}', "max": 3},
+                {"key": "comparison", "query": f'"{pname}" vs comparison {category}', "max": 3},
             ]
             r = await _research_with_tavily(
                 STAGE2E_SYSTEM,
                 f"Product: {pname}\nBrand: {brand}\nCategory: {category}\nPrice: {price}\nMarket: {market}\nClaims: {chr(10).join(claims)}\nVerify claims and find alternatives.",
                 tavily_queries=queries, max_tokens=16384, stage="claims", context_budget=8000,
             )
-            research.claims_alternatives = r
-            await db.commit()
+            await _update_research(rid, claims_alternatives=r)
+            logger.info(f"  [claims] done ({len(r)} chars)")
             return r
 
-        # Run all 5 in parallel
         branch_results = await asyncio.gather(
-            _branch_ingredients(),
-            _branch_reviews(),
-            _branch_experts(),
-            _branch_brand(),
-            _branch_claims(),
+            _branch_ingredients(), _branch_reviews(), _branch_experts(),
+            _branch_brand(), _branch_claims(),
         )
 
-        # ── STAGE 3: Overlay (Gemini only, no search) ────────
-        await _save("compiling")
-        logger.info(f"[Research #{research.id}] Stage 3: Overlay...")
+        # ── STAGE 3: Overlay ──────────────────────────────────
+        await _update_research(rid, current_stage="compiling")
+        logger.info(f"[Research #{rid}] Stage 3: Overlay...")
 
         ctx_parts = [f"PRODUCT: {json.dumps(product_data, indent=2)[:3000]}"]
-        labels = ["INGREDIENTS", "REVIEWS", "EXPERTS", "BRAND", "CLAIMS"]
-        for label, text in zip(labels, branch_results):
+        for label, text in zip(["INGREDIENTS","REVIEWS","EXPERTS","BRAND","CLAIMS"], branch_results):
             ctx_parts.append(f"\n━━━ {label} ━━━\n{(text or '')[:4000]}")
-        context = "\n".join(ctx_parts)
 
         overlay = await _research_no_search(
             STAGE3_OVERLAY_SYSTEM,
-            f"Product: {pname}\n\nResearch excerpts:\n{context}\n\nWrite TL;DR, §7 Usage, §8 Report Card.",
+            f"Product: {pname}\n\nResearch excerpts:\n{''.join(ctx_parts)}\n\nWrite TL;DR, §7 Usage, §8 Report Card.",
             max_tokens=8192, stage="overlay",
         )
 
-        # Parse overlay
         tldr, sec7, sec8 = "", "", ""
         m7 = re.search(r"(?m)^## 7\.\s*", overlay)
         m8 = re.search(r"(?m)^## 8\.\s*", overlay)
@@ -445,11 +434,6 @@ async def run_research(product_name: str, product_id: int | None, db: AsyncSessi
         elif overlay:
             tldr = overlay.strip()
 
-        research.tldr = tldr
-        research.usage_protocol = sec7
-        research.report_card = _parse_report_card(sec8)
-
-        # Assemble full markdown
         report_parts = [
             f"# JAY Research — {pname}\n",
             f"## TL;DR\n{tldr}\n" if tldr else "",
@@ -462,19 +446,20 @@ async def run_research(product_name: str, product_id: int | None, db: AsyncSessi
             f"{sec7}\n" if sec7 else "",
             f"{sec8}\n" if sec8 else "",
         ]
-        research.report_markdown = "\n".join(p for p in report_parts if p)
+        report_md = "\n".join(p for p in report_parts if p)
 
         elapsed = time.time() - start
-        research.duration_seconds = round(elapsed, 1)
-        research.status = "completed"
-        research.current_stage = "done"
-        logger.info(f"[Research #{research.id}] Completed in {elapsed:.0f}s")
+        await _update_research(rid,
+            tldr=tldr, usage_protocol=sec7,
+            report_card=_parse_report_card(sec8),
+            report_markdown=report_md,
+            duration_seconds=round(elapsed, 1),
+            status="completed", current_stage="done",
+        )
+        logger.info(f"[Research #{rid}] Completed in {elapsed:.0f}s")
 
     except Exception as e:
-        logger.error(f"[Research #{research.id}] Failed: {e}")
-        research.status = "failed"
-        research.current_stage = "failed"
-        research.error_message = str(e)
+        logger.error(f"[Research #{rid}] Failed: {e}")
+        await _update_research(rid, status="failed", current_stage="failed", error_message=str(e))
 
-    await db.commit()
     return research
